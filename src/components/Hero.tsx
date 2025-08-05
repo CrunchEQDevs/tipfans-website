@@ -35,7 +35,7 @@ const news = [
 
 export default function Hero() {
   return (
-    <section className="w-full bg-white py-8 px-4 md:px-12">
+    <section className="w-full bg-white py-8 px-4 md:px-12 mt-10">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-7xl mx-auto">
         {/* Card principal */}
         <div className="md:col-span-2 relative group overflow-hidden rounded-lg shadow-lg">
