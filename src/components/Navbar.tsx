@@ -62,8 +62,8 @@ export default function Navbar() {
   };
 
   const getLogo = () => {
-    if (!mounted) return '/Logotipo_azul.png';
-    return theme === 'dark' ? '/Logotipo_laranja.png' : '/Logotipo_azul.png';
+    if (!mounted) return '/Logotipo_Azul.png';
+    return theme === 'dark' ? '/Logotipo_Laranja.png' : '/Logotipo_Azul.png';
   };
 
   return (
