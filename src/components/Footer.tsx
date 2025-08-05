@@ -30,8 +30,8 @@ export default function Footer() {
   };
 
   const getLogo = () => {
-    if (!mounted) return '/logotipo_azul.png';
-    return theme === 'dark' ? '/logotipo_laranja.png' : '/logotipo_branco.png';
+    if (!mounted) return '/Logotipo_Azul.png';
+    return theme === 'dark' ? '/Logotipo_Laranja.png' : '/Logotipo_Branco.png';
   };
 
   return (

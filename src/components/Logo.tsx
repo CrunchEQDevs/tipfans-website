@@ -13,7 +13,7 @@ export default function LogoPage() {
         className="text-center"
       >
         <Image
-          src="/logotipo_laranja.png" 
+          src="/Logotipo_Laranja.png" 
           alt="Logotipo TipFans"
           width={320}
           height={120}
