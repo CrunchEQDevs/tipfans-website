@@ -4,10 +4,6 @@ import './globals.css';
 import Navbar from '@/components/Navbar';
 import { ThemeProvider } from '@/components/theme-provider';
 import Footer from '@/components/Footer';
-import Hero2 from '@/components/Hero2';
-import UltimasNoticias from '@/components/UltimasNoticias'; 
-import Hero from '@/components/Hero';
-import Logo from '@/components/Logo';
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
 const geistMono = Geist_Mono({
@@ -37,10 +33,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <Navbar />
-          <Hero2 />
-          <UltimasNoticias />
-          <Logo />
-          <Hero />
+          {children}
           <Footer />
         </ThemeProvider>
       </body>
