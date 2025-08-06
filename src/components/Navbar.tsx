@@ -67,7 +67,9 @@ export default function Navbar() {
   };
 
   return (
-    <header className={`fixed top-0 w-full z-50 shadow-md border-b border-white/10 backdrop-blur-md ${getBackgroundColor()} transition-all duration-300`}>
+    <header className={`fixed top-0 w-full z-50 shadow-md border-b border-white/10 backdrop-blur-md 
+    bg-gradient-to-r from-[#ed4f00] via-[#ebebeb] to-[#1e10c7] transition-all duration-300
+    dark:bg-gradient-to-r dark:from-[#1e10c7] dark:via-[#ebebeb] dark:to-[#ed4f00] $`}>
       {/* Top Bar */}
       <div className="w-full px-4 py-2 text-sm uppercase font-semibold tracking-wide">
         <div className={`max-w-7xl mx-auto flex justify-end items-center gap-4 ${getTextColor()}`}>
