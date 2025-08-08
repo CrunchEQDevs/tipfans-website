@@ -8,7 +8,7 @@ if (!MONGODB_URI) {
 
 // Cache global para evitar múltiplas conexões no dev
 declare global {
-  // eslint-disable-next-line no-var
+
   var mongooseCache: { conn: Mongoose | null; promise: Promise<Mongoose> | null };
 }
 
