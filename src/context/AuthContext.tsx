@@ -9,6 +9,7 @@ import {
 } from 'react';
 
 type User = {
+  id: number;
   email: string;
   name: string;
 };
@@ -49,9 +50,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (res.ok) {
-        setUser({ email: data.email, name: data.name });
+        setUser({
+          id: data.id,
+          email: data.email,
+          name: data.name,
+        });
 
-        // ✅ Salva papel do usuário
         if (data.roles?.[0]) {
           localStorage.setItem('userRole', data.roles[0]);
         } else {
@@ -95,7 +99,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('jwt_token', data.token);
         setToken(data.token);
 
-        // ⚠️ fallback: se a role vier aqui já, salva (não obrigatório)
         if (data.data?.roles?.[0]) {
           localStorage.setItem('userRole', data.data.roles[0]);
         }
