@@ -1,13 +1,17 @@
-// app/api/test-mongo/route.ts
-import { connectDB } from '@/lib/mongo';
+// src/app/api/test-mongo/route.ts
 import { NextResponse } from 'next/server';
+import { connectDB } from '@/lib/mongo'; // ajuste o caminho
 
 export async function GET() {
   try {
-    await connectDB();
-    return NextResponse.json({ status: '✅ Conectado ao MongoDB' });
+    const conn = await connectDB();
+    return NextResponse.json({
+      status: '✅ Conectado ao MongoDB',
+      host: conn.connection.host,
+      dbName: conn.connection.name,
+    });
   } catch (error) {
-    console.error('Erro de conexão:', error);
-    return NextResponse.json({ status: '❌ Erro de conexão', error: String(error) }, { status: 500 });
+    console.error(error);
+    return NextResponse.json({ status: '❌ Erro ao conectar', error: (error as Error).message }, { status: 500 });
   }
 }
