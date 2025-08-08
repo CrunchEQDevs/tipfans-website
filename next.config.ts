@@ -2,12 +2,11 @@
 const nextConfig = {
   reactStrictMode: true,
   experimental: {
-    appDir: true,
-    typedRoutes: true, // se quiser usar rota tipada em TS
+    typedRoutes: true, // OK manter esse se estiver usando rotas tipadas com TS
   },
   images: {
-    unoptimized: true, // Desative se for usar o Image Optimization da Vercel
+    unoptimized: true, // OK para projetos sem otimização automática de imagem
   },
 }
 
-module.exports = nextConfig
+module.exports = nextConfig;

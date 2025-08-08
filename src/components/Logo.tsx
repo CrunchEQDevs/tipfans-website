@@ -13,18 +13,13 @@ export default function LogoPage() {
     setMounted(true);
   }, []);
 
-  const getBackgroundColor = () => {
-    if (!mounted) return 'bg-brandBlue';
-    return theme === 'dark' ? 'bg-brandBlue' : 'bg-brandBlue';
-  };
-
   const getLogo = () => {
-    if (!mounted) return '/Logotipo_Branco.png';
-    return theme === 'dark' ? '/Logotipo_Laranja.png' : '/Logotipo_Branco.png';
+    if (!mounted) return '/Logo_Tipfans.png';
+    return theme === 'dark' ? '/Logo_Tipfans.png' : '/Logo_Tipfans.png';
   };
 
   return (
-    <section className={`${getBackgroundColor()} py-8`}>
+    <section className={` bg-[#1E10C7] py-8`}>
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
