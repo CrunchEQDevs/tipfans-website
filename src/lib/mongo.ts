@@ -1,22 +1,30 @@
-// lib/mongo.ts
-import mongoose from 'mongoose';
+import mongoose, { Mongoose } from 'mongoose';
 
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_URI: string = process.env.MONGODB_URI as string;
 
-if (!MONGODB_URI) throw new Error('❌ MONGODB_URI não definida no .env');
+if (!MONGODB_URI) {
+  throw new Error('❌ MONGODB_URI não definida no .env');
+}
 
-let cached = (global as any).mongoose || { conn: null, promise: null };
+// Cache global para evitar múltiplas conexões no dev
+declare global {
+  // eslint-disable-next-line no-var
+  var mongooseCache: { conn: Mongoose | null; promise: Promise<Mongoose> | null };
+}
 
-export async function connectDB() {
-  if (cached.conn) return cached.conn;
+if (!global.mongooseCache) {
+  global.mongooseCache = { conn: null, promise: null };
+}
 
-  if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI!, {
+export async function connectDB(): Promise<Mongoose> {
+  if (global.mongooseCache.conn) return global.mongooseCache.conn;
+
+  if (!global.mongooseCache.promise) {
+    global.mongooseCache.promise = mongoose.connect(MONGODB_URI, {
       bufferCommands: false,
     });
   }
 
-  cached.conn = await cached.promise;
-  (global as any).mongoose = cached;
-  return cached.conn;
+  global.mongooseCache.conn = await global.mongooseCache.promise;
+  return global.mongooseCache.conn;
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
 
 export default function FotoPerfil() {
@@ -16,7 +17,7 @@ export default function FotoPerfil() {
         try {
           const res = await fetch(`/api/user-extra?id=${user.id}`);
           const dados = await res.json();
-          if (dados && dados.avatarUrl) {
+          if (dados?.avatarUrl) {
             setPreview(dados.avatarUrl);
           }
         } catch (err) {
@@ -32,8 +33,7 @@ export default function FotoPerfil() {
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64 = reader.result as string;
-        setPreview(base64);
+        setPreview(reader.result as string);
       };
       reader.readAsDataURL(file);
       setMensagem('');
@@ -60,7 +60,7 @@ export default function FotoPerfil() {
       if (res.ok) {
         setMensagem('✅ Foto de perfil salva com sucesso!');
       } else {
-        setMensagem(`Erro ao salvar: ${resposta.error || 'desconhecido'}`);
+        setMensagem(`❌ Erro: ${resposta.error || 'Desconhecido'}`);
       }
     } catch (err) {
       console.error('Erro ao salvar avatar:', err);
@@ -72,11 +72,17 @@ export default function FotoPerfil() {
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-blue-500 shadow">
+      <div className="w-32 h-32 relative rounded-full overflow-hidden border-4 border-blue-500 shadow-md bg-gray-200 dark:bg-gray-700">
         {preview ? (
-          <img src={preview} alt="Foto de perfil" className="w-full h-full object-cover" />
+          <Image
+            src={preview}
+            alt="Foto de perfil"
+            fill
+            className="object-cover"
+            priority
+          />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500 bg-gray-200 dark:bg-gray-700">
+          <div className="w-full h-full flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">
             Nenhuma imagem
           </div>
         )}
@@ -92,7 +98,7 @@ export default function FotoPerfil() {
 
       <button
         onClick={() => inputRef.current?.click()}
-        className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-800"
+        className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-800 transition"
       >
         Escolher imagem
       </button>
@@ -101,13 +107,15 @@ export default function FotoPerfil() {
         <button
           onClick={handleSalvarFoto}
           disabled={carregando}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
         >
           {carregando ? 'Salvando...' : 'Salvar Foto'}
         </button>
       )}
 
-      {mensagem && <p className="text-green-600 dark:text-green-400">{mensagem}</p>}
+      {mensagem && (
+        <p className="text-sm mt-2 text-green-600 dark:text-green-400">{mensagem}</p>
+      )}
     </div>
   );
 }

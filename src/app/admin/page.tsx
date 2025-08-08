@@ -1,13 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 
 export default function AdminPage() {
   const { token } = useAuth();
   const router = useRouter();
-  const [role, setRole] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -16,12 +15,10 @@ export default function AdminPage() {
     }
 
     const savedRole = localStorage.getItem('userRole');
-    setRole(savedRole);
-
     if (savedRole !== 'administrator') {
       router.push('/perfil');
     }
-  }, [token]);
+  }, [token, router]); // ✅ Dependências corretas
 
   return (
     <main className="min-h-screen bg-gray-100 dark:bg-gray-900 p-6">
