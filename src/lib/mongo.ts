@@ -8,7 +8,6 @@ if (!MONGODB_URI) {
 
 // Cache global para evitar múltiplas conexões no dev
 declare global {
-
   var mongooseCache: { conn: Mongoose | null; promise: Promise<Mongoose> | null };
 }
 

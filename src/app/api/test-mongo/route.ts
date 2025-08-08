@@ -1,6 +1,5 @@
-// src/app/api/test-mongo/route.ts
 import { NextResponse } from 'next/server';
-import { connectDB } from '@/lib/mongo'; // ajuste o caminho
+import { connectDB } from '@/lib/mongo';
 
 export async function GET() {
   try {
@@ -11,7 +10,10 @@ export async function GET() {
       dbName: conn.connection.name,
     });
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ status: '❌ Erro ao conectar', error: (error as Error).message }, { status: 500 });
+    console.error('Erro MongoDB:', error);
+    return NextResponse.json(
+      { status: '❌ Erro ao conectar', error: (error as Error).message },
+      { status: 500 }
+    );
   }
 }
