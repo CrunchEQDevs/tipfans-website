@@ -1,8 +1,12 @@
+import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/mongo';
-import UserExtra from '@/models/UserExtra';
 
 export async function GET() {
-  await connectDB();
-  const usuarios = await UserExtra.find({});
-  return Response.json(usuarios);
+  try {
+    await connectDB();
+    return NextResponse.json({ status: '✅ Conectado ao MongoDB' });
+  } catch (error: any) {
+    console.error('Erro ao conectar:', error.message);
+    return NextResponse.json({ status: '❌ Erro na conexão', erro: error.message }, { status: 500 });
+  }
 }
