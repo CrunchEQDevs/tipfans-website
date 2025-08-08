@@ -1,49 +1,42 @@
 'use client';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { useTheme } from 'next-themes';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   FaFacebookF,
   FaInstagram,
   FaYoutube,
   FaEnvelope,
+  FaSearch,
   FaBars,
   FaTimes,
 } from 'react-icons/fa';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUserPlus, faMoon, faSun } from '@fortawesome/free-solid-svg-icons';
+import { motion, AnimatePresence } from 'framer-motion';
 import LoginPanel from './LoginPanel';
+import { useAuth } from '@/context/AuthContext';
 
 const menuItems = [
-  {
-    title: 'Latest',
-    submenu: ['Articles', 'Guides', 'Tips'],
-  },
-  {
-    title: 'Tips',
-    submenu: ['Football', 'Tennis', 'Basketball', 'Esports', 'Other'],
-  },
-  {
-    title: 'Tipsters',
-    submenu: ['Tipster profiles and statistics', 'Tipster Ranking'],
-  },
-  {
-    title: 'Challenges',
-    submenu: ['Challenges Page', 'Rankings Page'],
-  },
-  {
-    title: 'Community',
-    submenu: ['Page linking to social media'],
-  },
+  { title: 'ÚLTIMAS', submenu: ['Artigos', 'Guias', 'Dicas'] },
+  { title: 'TIPS', submenu: ['Futebol', 'Tênis', 'Basquete', 'Esports', 'Outros'] },
+  { title: 'TIPSTERS', submenu: ['Perfis de Tipsters', 'Ranking de Tipsters'] },
+  { title: 'DESAFIOS', submenu: ['Página de Desafios', 'Ranking de Desafios'] },
+  { title: 'COMUNIDADE', submenu: ['Links das redes sociais'] },
 ];
 
 export default function Navbar() {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const { theme, setTheme } = useTheme();
+  const { user } = useAuth();
+  const pathname = usePathname();
+  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
@@ -53,52 +46,65 @@ export default function Navbar() {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
 
-  const getTextColor = () => {
-    if (!mounted) return 'text-brandBlue';
-    return theme === 'dark' ? 'text-brandOrange' : 'text-brandBlue';
-  };
+  const scrollToHome = () => {
+    if (pathname !== '/') {
+      router.push('/');
+    }
 
-  const getLogo = () => {
-    if (!mounted) return '/Logotipo_Azul.png';
-    return theme === 'dark' ? '/Logotipo_Laranja.png' : '/Logotipo_Azul.png';
+    setTimeout(() => {
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }, 100);
   };
 
   return (
     <>
-      <header
-        className={`fixed top-0 w-full z-50 border-b border-white/10 backdrop-blur-md 
-        bg-gradient-to-r from-[#ed4f00] via-[#ebebeb] to-[#1e10c7] transition-all duration-300
-        dark:bg-gradient-to-r dark:from-[#1e10c7] dark:via-[#ebebeb] dark:to-[#ed4f00]`}
-      >
-        {/* Top Bar */}
-        <div className="w-full px-4 py-2 text-sm uppercase font-semibold tracking-wide">
-          <div
-            className={`max-w-7xl mx-auto flex justify-end items-center gap-4 ${getTextColor()}`}
-          >
-            <FaEnvelope className="hover:scale-110 transition-transform cursor-pointer" />
-            <FaFacebookF className="hover:scale-110 transition-transform cursor-pointer" />
-            <FaInstagram className="hover:scale-110 transition-transform cursor-pointer" />
-            <FaYoutube className="hover:scale-110 transition-transform cursor-pointer" />
-          </div>
-        </div>
-
-        {/* Main nav */}
-        <nav className="px-4 py-3">
-          <div className="max-w-7xl mx-auto flex justify-between items-center">
-            {/* Logo */}
+      <header className="w-full">
+        {/* Topo */}
+        <div className="bg-[#1E1E1E] px-4 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-4 ml-4 md:ml-56">
             {mounted && (
               <Image
-                src={getLogo()}
+                onClick={scrollToHome}
+                src="/Logo_TipFans.png"
                 alt="Logo"
-                width={140}
-                height={100}
+                width={180}
+                height={60}
+                className="h-auto cursor-pointer"
                 priority
-                className="h-auto transition-opacity duration-500"
               />
             )}
+          </div>
+          <div className="hidden md:flex items-center gap-4 text-white text-lg mr-56">
+            <FaEnvelope className="cursor-pointer hover:scale-110 transition" />
+            <FaFacebookF className="cursor-pointer hover:scale-110 transition" />
+            <FaInstagram className="cursor-pointer hover:scale-110 transition" />
+            <FaYoutube className="cursor-pointer hover:scale-110 transition" />
+          </div>
 
-            {/* Desktop Menu */}
-            <div className="hidden md:flex items-center gap-8">
+          {/* Botão hamburguer para mobile */}
+          <button onClick={() => setMobileOpen(!mobileOpen)} className="md:hidden text-white text-2xl">
+            {mobileOpen ? <FaTimes /> : <FaBars />}
+          </button>
+        </div>
+
+        {/* Barra principal */}
+        <nav className="bg-[#1E10C7] text-white py-3 px-4 w-full">
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            {/* Dark Mode */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleDarkMode}
+                className="bg-orange-500 p-1 rounded-full text-white"
+                aria-label="Toggle Dark Mode"
+              >
+                <FontAwesomeIcon icon={theme === 'dark' ? faSun : faMoon} />
+              </button>
+            </div>
+
+            {/* Menu Desktop */}
+            <div className="hidden md:flex items-center gap-6 text-sm font-semibold uppercase tracking-wide">
               {menuItems.map((item) => (
                 <div
                   key={item.title}
@@ -107,72 +113,83 @@ export default function Navbar() {
                   onMouseLeave={() => setOpenMenu(null)}
                 >
                   <button
-                    className={`font-bold uppercase text-sm tracking-wider ${getTextColor()} hover:text-brandBlue transition`}
+                    className={`transition hover:text-yellow-300 ${
+                      pathname.includes(item.title.toLowerCase()) ? 'text-yellow-300' : ''
+                    }`}
                   >
                     {item.title}
                   </button>
 
-                  {/* Submenu */}
-                  {openMenu === item.title && (
-                    <div className="absolute bg-white dark:bg-gray-800 border border-brandBlue mt-2 py-2 w-56 z-50 shadow-lg rounded-xl animate-slideIn">
-                      {item.submenu.map((subItem, index) => (
-                        <span
-                          key={index}
-                          className="block px-4 py-2 text-brandBlue dark:text-white opacity-80 hover:opacity-100 transition-all cursor-pointer"
-                        >
-                          {subItem}
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  <AnimatePresence>
+                    {openMenu === item.title && (
+                      <motion.div
+                        className="absolute bg-white dark:bg-gray-900 border border-gray-300 mt-2 py-2 w-56 z-50 shadow-lg rounded-lg"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                      >
+                        {item.submenu.map((subItem, index) => (
+                          <span
+                            key={index}
+                            className="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition cursor-pointer"
+                          >
+                            {subItem}
+                          </span>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               ))}
+            </div>
 
-              {/* Dark mode toggle */}
-              {mounted && (
-                <button
-                  onClick={toggleDarkMode}
-                  className="ml-4"
-                  aria-label="Toggle Dark Mode"
-                >
-                  <FontAwesomeIcon
-                    icon={theme === 'dark' ? faSun : faMoon}
-                    className={`text-lg ${getTextColor()} hover:scale-110 transition-transform`}
-                  />
-                </button>
+            {/* Pesquisa e Login */}
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Pesquisar"
+                  className="pl-8 pr-3 py-1 rounded bg-[#2a2a2a] text-white placeholder:text-gray-400 text-sm focus:outline-none"
+                />
+              </div>
+
+              {user ? (
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="hidden md:inline">👋 Olá, {user.name.split(' ')[0]}</span>
+                  <Link href="/perfil" className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-white">Perfil</Link>
+                  <Link href="/logout" className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-white">Sair</Link>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setLoginOpen(true)}
+                    className="bg-[#ff4500] hover:opacity-90 transition px-4 py-1.5 text-white text-sm rounded flex items-center gap-2"
+                  >
+                    <FontAwesomeIcon icon={faUserPlus} />
+                    Login
+                  </button>
+                  <Link
+                    href="/registro"
+                    className="bg-blue-600 hover:bg-blue-700 transition px-4 py-1.5 text-white text-sm rounded flex items-center gap-2"
+                  >
+                    Criar Conta
+                  </Link>
+                </div>
               )}
             </div>
-
-            {/* Search + Login - Desktop */}
-            <div className="hidden md:flex items-center gap-4">
-              <input
-                type="text"
-                placeholder="Search..."
-                className="px-3 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-sm border border-gray-400 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-brandOrange placeholder:text-gray-500 dark:placeholder:text-gray-400"
-              />
-              <button
-                onClick={() => setLoginOpen(true)}
-                className="bg-gradient-to-r from-brandOrange to-orange-600 text-white px-4 py-1 rounded-full shadow hover:opacity-90 transition flex items-center gap-2"
-              >
-                <FontAwesomeIcon icon={faUserPlus} />
-                Login
-              </button>
-            </div>
-
-            {/* Mobile menu toggle */}
-            <div className="md:hidden">
-              <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className={`${getTextColor()}`}
-              >
-                {mobileMenuOpen ? <FaTimes size={22} /> : <FaBars size={22} />}
-              </button>
-            </div>
           </div>
+        </nav>
 
-          {/* Mobile Menu */}
-          {mobileMenuOpen && (
-            <div className="md:hidden mt-4 px-4 pb-6 space-y-4 bg-white/80 dark:bg-black/80 rounded-b-lg animate-slideIn">
+        {/* Menu Mobile Expandido */}
+        <AnimatePresence>
+          {mobileOpen && (
+            <motion.div
+              className="md:hidden px-4 py-4 bg-white dark:bg-black space-y-4"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+            >
               {menuItems.map((item) => (
                 <div key={item.title}>
                   <p className="font-bold uppercase text-sm tracking-wide text-brandBlue dark:text-brandOrange">
@@ -190,38 +207,12 @@ export default function Navbar() {
                   </div>
                 </div>
               ))}
-
-              {/* Dark mode mobile toggle */}
-              {mounted && (
-                <button
-                  onClick={toggleDarkMode}
-                  className="mt-4 flex items-center gap-2 text-brandOrange"
-                >
-                  <FontAwesomeIcon
-                    icon={theme === 'dark' ? faSun : faMoon}
-                    className="text-lg"
-                  />
-                  <span>Dark Mode</span>
-                </button>
-              )}
-
-              {/* Botão de login no mobile */}
-              <button
-                onClick={() => {
-                  setLoginOpen(true);
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full mt-4 bg-gradient-to-r from-brandOrange to-orange-600 text-white px-4 py-2 rounded-full shadow hover:opacity-90 transition flex items-center justify-center gap-2"
-              >
-                <FontAwesomeIcon icon={faUserPlus} />
-                Login
-              </button>
-            </div>
+            </motion.div>
           )}
-        </nav>
+        </AnimatePresence>
       </header>
 
-      {/* Painel de Login */}
+      {/* Painel de login lateral */}
       <LoginPanel isOpen={loginOpen} onClose={() => setLoginOpen(false)} />
     </>
   );

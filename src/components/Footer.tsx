@@ -24,27 +24,14 @@ export default function Footer() {
     return theme === 'dark' ? 'text-brandOrange' : 'text-white';
   };
 
-  const getBackgroundColor = () => {
-    if (!mounted) return 'bg-[#1900ff]';
-    return theme === 'dark' ? 'bg-gray-900' : 'bg-[#1900ff]';
-  };
-
   const getLogo = () => {
-    if (!mounted) return '/Logotipo_Azul.png';
-    return theme === 'dark' ? '/Logotipo_Laranja.png' : '/Logotipo_Branco.png';
+    if (!mounted) return '/Logo_TipFans.png';
+    return theme === 'dark' ? '/Logo_TipFans.png' : '/Logo_TipFans.png';
   };
 
   return (
-    <footer className={`relative z-10 overflow-hidden ${getBackgroundColor()} text-white py-10`}>
-      {/* Background image */}
-      <Image
-        src="/estadio.jpg"
-        alt="Background"
-        layout="fill"
-        objectFit="cover"
-        className="absolute inset-0 opacity-80 -z-10"
-      />
-
+    <footer className={`relative z-10 overflow-hidden bg-[#1E1E1E] text-white py-10`}>
+     
       {/* Conteúdo */}
       <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-8 text-center md:text-left">
         {/* Logo */}

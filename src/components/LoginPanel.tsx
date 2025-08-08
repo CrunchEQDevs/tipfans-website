@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
+import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'next/navigation';
 
 type LoginPanelProps = {
   isOpen: boolean;
@@ -10,15 +12,48 @@ type LoginPanelProps = {
 };
 
 export default function LoginPanel({ isOpen, onClose }: LoginPanelProps) {
+  const [email, setEmail] = useState('');
+  const [senha, setSenha] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState('');
+
+  const { login } = useAuth();
+  const router = useRouter();
+
   useEffect(() => {
     document.body.style.overflow = isOpen ? 'hidden' : '';
   }, [isOpen]);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErro('');
+    setLoading(true);
+
+    const sucesso = await login(email, senha);
+
+    if (sucesso) {
+      const userRole = localStorage.getItem('userRole');
+
+      if (userRole === 'administrator') {
+        window.location.href = 'https://tipfans.com/wp/wp-admin/index.php';
+      } else {
+        router.push('/');
+      }
+
+      setEmail('');
+      setSenha('');
+      onClose();
+    } else {
+      setErro('Usuário ou senha inválidos.');
+    }
+
+    setLoading(false);
+  };
 
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Overlay */}
           <motion.div
             className="fixed inset-0 bg-black/60 z-40"
             initial={{ opacity: 0 }}
@@ -27,20 +62,16 @@ export default function LoginPanel({ isOpen, onClose }: LoginPanelProps) {
             onClick={onClose}
           />
 
-          {/* Painel lateral */}
           <motion.div
-            className="fixed top-0 right-0 w-full sm:max-w-sm md:max-w-md h-full z-50 p-4 sm:p-6 overflow-y-auto 
-              bg-gradient-to-r from-[#ed4f00] via-[#ebebeb] to-[#1e10c7] 
-              dark:bg-gradient-to-r dark:from-[#1e10c7] dark:via-[#ebebeb] dark:to-[#ed4f00]"
+            className="fixed top-0 right-0 w-full sm:max-w-sm md:max-w-md h-full z-50 p-4 sm:p-6 overflow-y-auto bg-[#1E1E1E]"
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'tween' }}
           >
-            {/* Logo */}
             <div className="mt-10 mb-12 flex justify-center">
               <Image
-                src="/Logotipo_Branco.png"
+                src="/Logo_TipFans.png"
                 alt="Logo"
                 width={180}
                 height={60}
@@ -48,49 +79,60 @@ export default function LoginPanel({ isOpen, onClose }: LoginPanelProps) {
               />
             </div>
 
-            {/* Cabeçalho */}
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold dark:text-white text-gray-800">
-                Entrar na Conta
-              </h2>
-              <button onClick={onClose} className="text-gray-500 hover:text-red-500 text-xl">
-           
+              <h2 className="text-xl font-bold text-white">Entrar na Conta</h2>
+              <button onClick={onClose} className="text-white hover:text-red-500 text-xl">
+                ✕
               </button>
             </div>
 
-            {/* Formulário */}
-            <form className="space-y-4">
+            <form className="space-y-4" onSubmit={handleLogin}>
               <div>
-                <label className="block text-sm text-gray-700 dark:text-gray-300">Email</label>
+                <label className="block text-sm text-white">Usuário</label>
                 <input
-                  type="email"
-                  className="w-full px-3 py-2 border bg-white dark:bg-gray-800 dark:border-gray-700 text-gray-800 dark:text-white rounded-full"
-                  placeholder="seuemail@exemplo.com"
+                  type="text"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-3 py-2 border bg-white dark:bg-gray-800 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-full"
+                  placeholder="seu usuário do WordPress"
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-700 dark:text-gray-300">Senha</label>
+                <label className="block text-sm text-white">Senha</label>
                 <input
                   type="password"
-                  className="w-full px-3 py-2 border bg-white dark:bg-gray-800 dark:border-gray-700 text-gray-800 dark:text-white rounded-full"
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                  className="w-full px-3 py-2 border bg-white dark:bg-gray-800 dark:border-gray-700 text-white rounded-full"
                   placeholder="••••••••"
                 />
               </div>
+
+              {erro && <p className="text-red-600 text-sm">{erro}</p>}
+
               <button
                 type="submit"
-                className="w-full bg-brandOrange hover:bg-orange-600 text-white py-2 rounded-full transition"
+                disabled={loading}
+                className="w-full bg-brandOrange hover:bg-orange-600 text-white py-2 rounded-full transition disabled:opacity-50"
               >
-                Entrar
+                {loading ? 'Entrando...' : 'Entrar'}
               </button>
             </form>
 
-            {/* Registro */}
-            <p className="text-center text-sm mt-4 dark:text-gray-300 text-gray-600">
-              Ainda não tem conta?{' '}
-              <span className="text-brandOrange font-medium cursor-pointer hover:underline">
-                Registre-se
-              </span>
-            </p>
+            <div className="mt-6 text-center">
+              <p className="text-white text-sm">
+                Ainda não tem uma conta?{' '}
+                <button
+                  onClick={() => {
+                    onClose();
+                    router.push('/registro');
+                  }}
+                  className="text-brandOrange hover:underline font-semibold"
+                >
+                  Criar conta
+                </button>
+              </p>
+            </div>
           </motion.div>
         </>
       )}
