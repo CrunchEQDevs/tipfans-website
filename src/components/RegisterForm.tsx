@@ -4,11 +4,10 @@ import { useState } from 'react';
 
 export default function RegisterForm() {
   const [username, setUsername] = useState('');
-  const [uIdade, setUIdade] = useState('');
-  const [email, setEmail] = useState('');
-  const [senha, setSenha] = useState('');
+  const [email, setEmail]       = useState('');
+  const [senha, setSenha]       = useState('');
   const [mensagem, setMensagem] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]   = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,33 +18,30 @@ export default function RegisterForm() {
       const res = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username,
-          email,
-          password: senha,
-          idade: uIdade,
-        }),
+        body: JSON.stringify({ username, email, password: senha }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (res.ok) {
-        const role = data.role;
-
-        if (role === 'administrator') {
-          window.location.href = 'https://tipfans.com/wp/wp-admin/index.php';
-        } else {
-          setMensagem('✅ Conta criada com sucesso!');
-          setUsername('');
-          setUIdade('');
-          setEmail('');
-          setSenha('');
+        // Se a API mandar redirect (ex.: administrator), respeita.
+        if (data.redirect) {
+          window.location.href = data.redirect as string;
+          return;
         }
+
+        // Login automático já deixou o cookie tf_token setado.
+        setMensagem('✅ Conta criada e autenticada com sucesso. Redirecionando…');
+        // Dá um respiro pra UX e vai pro perfil:
+        setTimeout(() => {
+          window.location.href = '/perfil';
+        }, 800);
       } else {
-        setMensagem(`❌ ${data.message || 'Erro ao criar conta.'}`);
+        // A API pode devolver { error } ou { message }
+        const msg = (data?.error || data?.message || 'Erro ao criar conta.') as string;
+        setMensagem(`❌ ${msg}`);
       }
-    } catch (error) {
-      console.error(error);
+    } catch {
       setMensagem('❌ Erro de conexão com o servidor.');
     } finally {
       setLoading(false);
@@ -61,17 +57,9 @@ export default function RegisterForm() {
       <form onSubmit={handleRegister} className="space-y-4">
         <input
           type="text"
-          placeholder="Nome"
+          placeholder="Nome de utilizador"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          className="w-full px-4 py-2 border rounded dark:bg-gray-700 dark:text-white"
-          required
-        />
-        <input
-          type="number"
-          placeholder="Idade"
-          value={uIdade}
-          onChange={(e) => setUIdade(e.target.value)}
           className="w-full px-4 py-2 border rounded dark:bg-gray-700 dark:text-white"
           required
         />
@@ -102,7 +90,11 @@ export default function RegisterForm() {
       </form>
 
       {mensagem && (
-        <p className="mt-4 text-center text-sm text-red-500 dark:text-red-400">
+        <p
+          className={`mt-4 text-center text-sm ${
+            mensagem.startsWith('✅') ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'
+          }`}
+        >
           {mensagem}
         </p>
       )}
