@@ -1,76 +1,91 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-export type User = {
+export type CurrentUser = {
   id: string;
-  nome: string;
+  nome: string;  // mapeado de `name`
   email: string;
   role?: string;
   memberSince?: string;
   avatarUrl?: string;
-  // Campos extras vindos do Mongo (opcional)
   stats?: Record<string, unknown>;
 };
 
-export function useCurrentUser() {
-  const [user, setUser] = useState<User | null>(null);
+type HookState = {
+  user: CurrentUser | null;
+  loading: boolean;
+  erro: string | null;
+  refresh: () => Promise<void>;   // ← NOVO
+};
+
+export function useCurrentUser(): HookState {
+  const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    let abort = false;
+  const doFetch = useCallback(async () => {
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
 
-    (async () => {
-      try {
-        setLoading(true);
-        setErro(null);
+    setLoading(true);
+    setErro(null);
 
-        // 1) tenta com cookie (fluxo normal)
-        let res = await fetch('/api/me', { cache: 'no-store' });
+    try {
+      const res = await fetch('/api/me', {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+        signal: ac.signal,
+      });
 
-        // 2) fallback: se 401, tenta com token salvo no localStorage (se existir)
-        if (res.status === 401) {
-          const raw =
-            typeof window !== 'undefined'
-              ? localStorage.getItem('token') ?? localStorage.getItem('tf_token')
-              : null;
-
-          if (raw) {
-            res = await fetch('/api/me', {
-              method: 'GET',
-              cache: 'no-store',
-              headers: { Authorization: `Bearer ${raw}` },
-            });
-
-            // se funcionou, tenta gravar cookie pra próximas vezes
-            if (res.ok) {
-              await fetch('/api/session/exchange', {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${raw}` },
-              }).catch(() => {});
-            }
-          }
-        }
-
-        if (!res.ok) {
-          const txt = await res.text().catch(() => '');
-          throw new Error(`HTTP ${res.status}${txt ? `: ${txt}` : ''}`);
-        }
-
-        const data = (await res.json()) as { user?: User };
-        if (!abort) setUser(data.user ?? null);
-      } catch (e) {
-        if (!abort) setErro(e instanceof Error ? e.message : 'Erro');
-      } finally {
-        if (!abort) setLoading(false);
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '');
+        setUser(null);
+        setErro(txt || `HTTP ${res.status}`);
+        return;
       }
-    })();
 
-    return () => {
-      abort = true;
-    };
+      const data = await res.json();
+      const u = data?.user;
+
+      if (!u || typeof u !== 'object') {
+        setUser(null);
+        setErro('Resposta inválida de /api/me');
+        return;
+      }
+
+      const mapped: CurrentUser = {
+        id: String((u as Record<string, unknown>).id ?? (u as Record<string, unknown>).email ?? ''),
+        nome:
+          String((u as Record<string, unknown>).name ?? (u as Record<string, unknown>).nome ?? '')
+            .trim() ||
+          String((u as Record<string, unknown>).email ?? '').split('@')[0],
+        email: String((u as Record<string, unknown>).email ?? ''),
+        role: (u as Record<string, unknown>).role as string | undefined,
+        memberSince: (u as Record<string, unknown>).memberSince as string | undefined,
+        avatarUrl: (u as Record<string, unknown>).avatarUrl as string | undefined,
+        stats: (u as Record<string, unknown>).stats as Record<string, unknown> | undefined,
+      };
+
+      setUser(mapped);
+    } catch (e: unknown) {
+      // ignorar abortos do fetch
+      if (e instanceof Error && e.name === 'AbortError') {
+        return;
+      }
+      setUser(null);
+      setErro(e instanceof Error ? e.message : 'Falha ao carregar /api/me');
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  return { user, loading, erro };
+  useEffect(() => { void doFetch(); }, [doFetch]);
+
+  const refresh = useCallback(async () => { await doFetch(); }, [doFetch]);
+
+  return { user, loading, erro, refresh };
 }
