@@ -10,7 +10,7 @@ export default function RegistroPage() {
         alt="Logo TipFans"
         width={180}
         height={60}
-        className="mb-8"
+        className="mb-0"
       />
       <div className="w-full max-w-md">
         <RegisterForm />

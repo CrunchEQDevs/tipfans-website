@@ -288,7 +288,7 @@ export default function PerfilTabs() {
     <div className="min-h-[70vh] w-full bg-gradient-to-b from-gray-100 via-gray-50 to-white text-gray-900 dark:from-gray-900 dark:via-gray-900 dark:to-black dark:text-white">
       <div className="mx-auto max-w-6xl px-4 py-8">
         {/* Header — com botões Alterar perfil e Voltar ao site */}
-        <section className="mb-6 rounded-2xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-white/5 dark:ring-white/10">
+        <section className="mb-6 rounded-2xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg:white/5 dark:ring-white/10">
           <div className="flex flex-col items-center gap-4 p-5 sm:flex-row sm:items-center">
             <div className="relative h-20 w-20 overflow-hidden rounded-full ring-2 ring-gray-200 dark:ring-white/20">
               <Image
@@ -332,6 +332,24 @@ export default function PerfilTabs() {
                 Voltar ao site
               </Link>
             </div>
+          </div>
+        </section>
+
+        {/* Destaque: Crie a sua tip */}
+        <section className="mb-6 rounded-2xl bg-gradient-to-r from-indigo-50 to-white p-5 ring-1 ring-indigo-200 shadow-sm dark:from-white/10 dark:to-white/5 dark:ring-white/10">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-base font-semibold text-indigo-900 dark:text-white">Crie a sua tip</h2>
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                Publique o seu palpite e participe na comunidade.
+              </p>
+            </div>
+            <Link
+              href="/tips/enviar"
+              className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 dark:bg-amber-500 dark:text-black dark:hover:bg-amber-400 dark:focus:ring-amber-300"
+            >
+              Criar tip agora
+            </Link>
           </div>
         </section>
 

@@ -1,21 +1,24 @@
-/** @type {import('next').NextConfig} */
+// next.config.ts
+import type { NextConfig } from "next";
+
 const nextConfig = {
   reactStrictMode: true,
   experimental: {
-    typedRoutes: true, // Se estiver usando rotas tipadas com TypeScript
+    // 🚫 desligar typedRoutes que gera type-check quebrado
+    typedRoutes: false,
   },
   images: {
-    unoptimized: true, // Mantém carregamento sem otimização automática
+    unoptimized: true,
     remotePatterns: [
-      { protocol: 'https', hostname: 'secure.gravatar.com' },
-      { protocol: 'https', hostname: '0.gravatar.com' },
-      { protocol: 'https', hostname: '1.gravatar.com' },
-      { protocol: 'https', hostname: '2.gravatar.com' },
-      { protocol: 'https', hostname: 's.w.org' },
-      { protocol: 'https', hostname: 'tipfans.com' }, // WordPress uploads
-      { protocol: 'https', hostname: 'www.tipfans.com' }, // caso use www
+      { protocol: "https", hostname: "secure.gravatar.com" },
+      { protocol: "https", hostname: "0.gravatar.com" },
+      { protocol: "https", hostname: "1.gravatar.com" },
+      { protocol: "https", hostname: "2.gravatar.com" },
+      { protocol: "https", hostname: "s.w.org" },
+      { protocol: "https", hostname: "tipfans.com" },
+      { protocol: "https", hostname: "www.tipfans.com" },
     ],
   },
-};
+} satisfies NextConfig;
 
-module.exports = nextConfig;
+export default nextConfig;

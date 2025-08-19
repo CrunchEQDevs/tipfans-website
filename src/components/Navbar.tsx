@@ -20,13 +20,57 @@ import { motion, AnimatePresence } from 'framer-motion';
 import LoginPanel from './LoginPanel';
 import { useAuth } from '@/context/AuthContext';
 
+/* ====== APENAS ESTE BLOCO FOI AJUSTADO (submenu como strings) ====== */
 const menuItems = [
-  { title: 'ÚLTIMAS', submenu: ['Artigos', 'Guias', 'Dicas'] },
-  { title: 'TIPS', submenu: ['Futebol', 'Tênis', 'Basquete', 'Esports', 'Outros'] },
-  { title: 'TIPSTERS', submenu: ['Perfis de Tipsters', 'Ranking de Tipsters'] },
-  { title: 'DESAFIOS', submenu: ['Página de Desafios', 'Ranking de Desafios'] },
-  { title: 'COMUNIDADE', submenu: ['Links das redes sociais'] },
+  {
+    title: 'ÚLTIMAS',
+    href: '/latest',
+    submenu: [
+      { label: 'Futebol', href: '/latest/futebol' },
+      { label: 'Tênis', href: '/latest/tennis' },
+      { label: 'Basquete', href: '/latest/basketball' },
+      { label: 'E-sports', href: '/latest/esports' },
+    ],
+  },
+  {
+    title: 'TIPS',
+    href: '/tips',
+    submenu: [
+      { label: 'Futebol', href: '/tips/futebol/' },
+      { label: 'Tênis', href: '/tips/tennis' },
+      { label: 'Basquete', href: '/tips/basketball' },
+      { label: 'Esports', href: '/tips/esports' },
+      { label: 'Dicas de Hoje', href: '/tips/hoje' },
+      { label: 'Dicas de Amanhã', href: '/tips/amanha' },
+      { label: 'Em breve', href: '/tips/embreve' },
+    ],
+  },    
+  {
+    title: 'TIPSTERS',
+    href: '/tipsters',
+    submenu: [
+      { label: 'Nuno Cunha', href: '/tipsters/nunocunha' },
+      { label: 'Domenico Pepe', href: '/tipsters/domenicopepe' },
+      { label: 'Amanda vidigal', href: '/tipsters/amandavidigal' },
+    ],
+  },
+  {
+    title: 'DESAFIOS',
+    href: '/challenges',
+    submenu: [
+      { label: 'Página de Desafios', href: '/challenges' },
+      { label: 'Ranking de Desafios', href: '/challenges/ranking' },
+    ],
+  },
+  {
+    title: 'COMUNIDADE',
+    href: '/community',
+    submenu: [
+      { label: 'Links das redes sociais', href: '/community' },
+    ],
+  },
 ];
+/* ==================================================================== */
 
 export default function Navbar() {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -50,7 +94,6 @@ export default function Navbar() {
     if (pathname !== '/') {
       router.push('/');
     }
-
     setTimeout(() => {
       if (typeof window !== 'undefined') {
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -129,12 +172,13 @@ export default function Navbar() {
                         exit={{ opacity: 0, y: 10 }}
                       >
                         {item.submenu.map((subItem, index) => (
-                          <span
+                          <a 
                             key={index}
+                            href={subItem.href}
                             className="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition cursor-pointer"
                           >
-                            {subItem}
-                          </span>
+                            {subItem.label}
+                          </a>
                         ))}
                       </motion.div>
                     )}
@@ -197,12 +241,12 @@ export default function Navbar() {
                   </p>
                   <div className="pl-4 space-y-1">
                     {item.submenu.map((subItem, index) => (
-                      <span
+                      <a href={`${subItem.href}`}
                         key={index}
                         className="block text-sm opacity-80 text-gray-700 dark:text-gray-300"
                       >
-                        {subItem}
-                      </span>
+                        {subItem.href}
+                      </a>
                     ))}
                   </div>
                 </div>

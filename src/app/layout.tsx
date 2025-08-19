@@ -26,7 +26,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="scroll-smooth" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-700 dark:bg-gray-900 text-black dark:text-white transition-colors duration-500`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-200 dark:bg-gray-700 text-black dark:text-white transition-colors duration-500`}
       >
         <AuthProvider>
           <ThemeProvider

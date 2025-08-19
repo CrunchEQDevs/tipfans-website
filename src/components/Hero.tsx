@@ -1,124 +1,84 @@
 'use client'
 
 import Image from 'next/image'
+import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 
-const news = [
+const slides = [
   {
     title: 'Como funcionam os contratos publicitários dos jogadores de futebol',
-    date: '27 de Setembro de 2023 | 10:30',
-    tag: 'Portugal',
-    tagColor: 'bg-red-600',
-    image: '/noticia1.jpg',
-  },
-  {
-    title: 'Como funcionam os contratos publicitários dos jogadores de futebol',
-    date: '27 de Setembro de 2023 | 10:30',
-    tag: 'Internacional',
-    tagColor: 'bg-blue-600',
-    image: '/noticia2.jpg',
-  },
-  {
-    title: 'Como funcionam os contratos publicitários dos jogadores de futebol',
-    date: '27 de Setembro de 2023 | 10:30',
-    tag: 'Transferências',
-    tagColor: 'bg-orange-400',
+    description: 'Lorem Ipsum é simplesmente um texto fictício da indústria de impressão e composição.',
     image: '/noticia3.jpg',
   },
   {
-    title: 'Como funcionam os contratos publicitários dos jogadores de futebol',
-    date: '27 de Setembro de 2023 | 10:30',
-    tag: 'Brasil',
-    tagColor: 'bg-green-600',
+    title: 'Ranking dos Tipsters Atualizado!',
+    description: 'Veja quem lidera o ranking semanal de apostas.',
     image: '/noticia2.jpg',
+  },
+  {
+    title: 'Participe dos Desafios Semanais',
+    description: 'Ganhe tokens e suba no ranking com suas dicas!',
+    image: '/noticia3.jpg',
   },
 ]
 
-export default function Hero() {
+export default function Hero2() {
+  const [index, setIndex] = useState(0)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIndex((prev) => (prev + 1) % slides.length)
+    }, 7000)
+    return () => clearInterval(interval)
+  }, [])
+
   return (
-    <section className="w-full bg-white py-8 px-4 md:px-12 ">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-7xl mx-auto">
-        {/* Card principal */}
-        <div className="md:col-span-2 relative group overflow-hidden rounded-lg shadow-lg">
+    <section className="relative w-full h-[70vh] overflow-hidden b ">
+      <AnimatePresence initial={false}>
+        <motion.div
+          key={slides[index].title}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.8 }}
+          className="absolute inset-0 w-full h-full"
+        >
           <Image
-            src={news[0].image}
-            alt={news[0].title}
-            width={1200}
-            height={600}
-            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            src={slides[index].image}
+            alt={slides[index].title}
+            layout="fill"
+            objectFit="cover"
+            className="z-0"
+            priority
           />
-          <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-4 text-white">
-            <h2 className="text-xl font-bold leading-snug">{news[0].title}</h2>
-            <div className="flex justify-between items-center mt-2 text-sm">
-              <span>Por Autor - {news[0].date}</span>
-              <span className={`px-2 py-1 text-xs rounded ${news[0].tagColor}`}>
-                {news[0].tag}
-              </span>
-            </div>
-          </div>
-        </div>
 
-        {/* Cards secundários */}
-        <div className="flex flex-col gap-6">
-          {/* Notícia 2 */}
-          <div className="relative group overflow-hidden rounded-lg shadow-lg">
-            <Image
-              src={news[1].image}
-              alt={news[1].title}
-              width={400}
-              height={200}
-              className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
-            />
-            <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-3 text-white">
-              <h3 className="text-sm font-bold">{news[1].title}</h3>
-              <div className="flex justify-between items-center mt-1 text-xs">
-                <span>Por Autor - {news[1].date}</span>
-                <span className={`px-2 py-0.5 rounded ${news[1].tagColor}`}>
-                  {news[1].tag}
-                </span>
-              </div>
-            </div>
-          </div>
+          {/* Gradiente branco inferior */}
+          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-white to-transparent z-10" />
 
-          {/* Notícia 3 */}
-          <div className="relative group overflow-hidden rounded-lg shadow-lg">
-            <Image
-              src={news[2].image}
-              alt={news[2].title}
-              width={400}
-              height={200}
-              className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
-            />
-            <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-3 text-white">
-              <h3 className="text-sm font-bold">{news[2].title}</h3>
-              <div className="flex justify-between items-center mt-1 text-xs">
-                <span>Por Autor - {news[2].date}</span>
-                <span className={`px-2 py-0.5 rounded ${news[2].tagColor}`}>
-                  {news[2].tag}
-                </span>
-              </div>
+          {/* Texto sobreposto */}
+          <div className="absolute inset-0 flex items-end z-20 px-6 md:px-16 pb-20">
+            <div className="max-w-2xl bg-white/80 p-6 rounded-lg shadow-lg">
+              <h2 className="text-2xl md:text-4xl font-bold text-black">{slides[index].title}</h2>
+              <p className="mt-2 text-gray-700 text-sm md:text-base">{slides[index].description}</p>
+              <button className="mt-4 px-5 py-2 bg-blue-600 text-white text-sm font-semibold rounded hover:bg-blue-700 transition">
+                Saiba mais
+              </button>
             </div>
           </div>
+        </motion.div>
+      </AnimatePresence>
 
-          {/* Notícia 4 */}
-          <div className="relative group overflow-hidden rounded-lg shadow-lg">
-            <Image
-              src={news[3].image}
-              alt={news[3].title}
-              width={400}
-              height={200}
-              className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
-            />
-            <div className="absolute bottom-0 left-0 right-0 bg-black/60 p-3 text-white">
-              <h3 className="text-sm font-bold">{news[3].title}</h3>
-              <div className="flex justify-between items-center mt-1 text-xs">
-                <span>Por Autor - {news[3].date}</span>
-                <span className={`px-2 py-0.5 rounded ${news[3].tagColor}`}>
-                  {news[3].tag}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Indicadores */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3 z-30">
+        {slides.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setIndex(i)}
+            className={`w-4 h-1.5 rounded-full transition-all duration-300 ${
+              i === index ? 'bg-purple-700 w-6' : 'bg-gray-400'
+            }`}
+          />
+        ))}
       </div>
     </section>
   )

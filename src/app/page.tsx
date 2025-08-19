@@ -1,19 +1,20 @@
-'use client'; 
+'use client';
 
-import Hero from "@/components/Hero";
-import Hero2 from "@/components/Hero2";
-import LogoPage from "@/components/Logo";
-import UltimasNoticias from "@/components/UltimasNoticias";
-import LoginPainel from "@/components/LoginPanel";
+import Hero from '@/components/Hero';
+import TipsDia from '@/components/TipsDia'
+import Ultimas from '@/components/Ultimas';
+import LoginPanel from '@/components/LoginPanel';
+import RankingMestresSection from '@/components/RankingMestresSection';
 
 export default function Home() {
   return (
-    <div className="">
-      <LoginPainel isOpen={false} onClose={() => {}} />
-      <Hero2 />
-      <UltimasNoticias />
-      <LogoPage />
+    <div>
+      <LoginPanel isOpen={false} onClose={() => {}} />
       <Hero />
+      <TipsDia />
+      <Ultimas />
+      <RankingMestresSection />
+
     </div>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 
 export default function RegisterForm() {
   const [username, setUsername] = useState('');
@@ -24,20 +25,13 @@ export default function RegisterForm() {
       const data = await res.json().catch(() => ({}));
 
       if (res.ok) {
-        // Se a API mandar redirect (ex.: administrator), respeita.
         if (data.redirect) {
           window.location.href = data.redirect as string;
           return;
         }
-
-        // Login automático já deixou o cookie tf_token setado.
         setMensagem('✅ Conta criada e autenticada com sucesso. Redirecionando…');
-        // Dá um respiro pra UX e vai pro perfil:
-        setTimeout(() => {
-          window.location.href = '/perfil';
-        }, 800);
+        setTimeout(() => { window.location.href = '/perfil'; }, 800);
       } else {
-        // A API pode devolver { error } ou { message }
         const msg = (data?.error || data?.message || 'Erro ao criar conta.') as string;
         setMensagem(`❌ ${msg}`);
       }
@@ -49,18 +43,30 @@ export default function RegisterForm() {
   };
 
   return (
-    <div className="max-w-md mx-auto p-6 bg-white dark:bg-gray-800 rounded-lg shadow">
-      <h2 className="text-2xl font-bold mb-4 text-center text-gray-800 dark:text-white">
+    <div className=" p-6 bg-[#1E1E1E] dark:bg-gray-800 rounded-lg shadow relative overflow-hidden ">
+      {/* Fundo: cobre todo o card, atrás e não captura cliques */}
+      <div className=" inset-8  pointer-events-none">
+        <Image
+          src="/Jog_login.png"
+          alt=""
+          fill
+          className="object-cover opacity-40"
+          priority
+        />
+      </div>
+
+      <h2 className="relative z-10 text-2xl font-bold mb-4 text-center text-white dark:text-white">
         Criar Conta
       </h2>
 
-      <form onSubmit={handleRegister} className="space-y-4">
+      <form className="space-y-4 px-8" onSubmit={handleRegister} >
         <input
           type="text"
           placeholder="Nome de utilizador"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
-          className="w-full px-4 py-2 border rounded dark:bg-gray-700 dark:text-white"
+          className="relative w-full px-3 py-2 border bg-white text-gray-700 placeholder:text-gray-500 rounded-md"
+          autoComplete="username"
           required
         />
         <input
@@ -68,7 +74,8 @@ export default function RegisterForm() {
           placeholder="E-mail"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full px-4 py-2 border rounded dark:bg-gray-700 dark:text-white"
+          className=" relative w-full px-3 py-2 border bg-white text-gray-700 placeholder:text-gray-500 rounded-md"
+          autoComplete="email"
           required
         />
         <input
@@ -76,14 +83,15 @@ export default function RegisterForm() {
           placeholder="Senha"
           value={senha}
           onChange={(e) => setSenha(e.target.value)}
-          className="w-full px-4 py-2 border rounded dark:bg-gray-700 dark:text-white"
+          className="relative w-full px-3 py-2 border bg-white text-gray-700 placeholder:text-gray-500 rounded-md"
+          autoComplete="new-password"
           required
         />
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 rounded transition disabled:opacity-50"
+          className="relative w-full bg-orange-600 hover:bg-orange-700 text-white py-2 rounded transition disabled:opacity-50"
         >
           {loading ? 'Criando...' : 'Cadastrar'}
         </button>
@@ -91,7 +99,7 @@ export default function RegisterForm() {
 
       {mensagem && (
         <p
-          className={`mt-4 text-center text-sm ${
+          className={`relative z-10 mt-4 text-center text-sm ${
             mensagem.startsWith('✅') ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'
           }`}
         >
