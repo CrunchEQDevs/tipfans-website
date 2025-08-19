@@ -33,7 +33,7 @@ export default function Hero2() {
   }, [])
 
   return (
-    <section className="relative w-full h-[70vh] overflow-hidden b ">
+    <section className="relative w-full h-[50vh] overflow-hidden b ">
       <AnimatePresence initial={false}>
         <motion.div
           key={slides[index].title}
