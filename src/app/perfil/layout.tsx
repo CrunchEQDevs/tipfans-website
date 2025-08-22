@@ -87,12 +87,12 @@ export default function PerfilLayout({ children }: { children: ReactNode }) {
   return (
     <section className="w-full">
       {/* ===== Cabeçalho fixo: Foto → Ganhos → Botões (links) ===== */}
-      <div className="relative w-full h-64 md:h-72 overflow-hidden bg-gray-800">
+      <div className="relative w-full h-64 md:h-72 overflow-hidden bg-gray-900 ">
         <Image
-          src="/tip2.jpg"
+          src="/B_tipsters.png"
           alt="Banner de perfil"
           fill
-          className="object-cover opacity-80"
+          className="object-cover  bg-gray-900 opacity-40"
           priority
         />
         <div className="absolute inset-0 bg-[#1e1e1e]/60" />

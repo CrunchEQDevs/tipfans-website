@@ -16,7 +16,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'; // 👈 shadcn/ui
+} from '@/components/ui/select';
 
 /* ---------- Tipos ---------- */
 type TipItem = {
@@ -36,17 +36,16 @@ type TipItem = {
 const WP_TIPS_ENDPOINT = '/api/wp/tips/subs';
 const WP_TIPS_FALLBACK = '/api/wp/posts?type=tip&status=publish';
 
-/* ---------- Cards---------- */
+/* ---------- Cards (fallback) ---------- */
 const FALLBACK_TIPS: TipItem[] = Array.from({ length: 12 }, (_, i) => ({
   id: String(i + 1),
   title: `Tip da comunidade #${i + 1}`,
-  sport: i % 2 === 0 ? 'Futebol' : 'Basquete',
+  sport: ['Futebol', 'Basquete', 'Ténis', 'eSports'][i % 4],
   league: 'Liga PT',
   teams: 'Casa vs Fora',
   pick: i % 2 ? 'BTTS Sim' : 'Mais de 2.5',
   odds: (1.65 + (i % 5) * 0.1).toFixed(2),
   author: `User #${i + 1}`,
-  image: '/tip2.png', // <- NÃO usaremos mais isso para render
 }));
 
 /* ---------- Config por desporto ---------- */
@@ -95,6 +94,7 @@ const SPORT_CONFIG: Record<
   },
 };
 
+/* normaliza o slug da rota */
 function normalizeSlug(raw?: string): keyof typeof SPORT_CONFIG {
   if (!raw) return 'futebol';
   const s = raw
@@ -102,11 +102,24 @@ function normalizeSlug(raw?: string): keyof typeof SPORT_CONFIG {
     .replace(/\p{Diacritic}/gu, '')
     .toLowerCase()
     .replace(/[^a-z0-9]/g, '');
-  // aceita variações da navbar
   if (s.includes('esport') || s.includes('e-sport')) return 'esports';
-  if (s.startsWith('fut')) return 'futebol';
+  if (s.startsWith('fut') || s.includes('soccer') || s.includes('foot')) return 'futebol';
   if (s.startsWith('basq') || s.includes('basket')) return 'basquete';
-  if (s.startsWith('ten')) return 'tenis'; // 'tenis'/'tennis'
+  if (s.startsWith('ten')) return 'tenis';
+  return 'futebol';
+}
+
+/* normaliza o sport vindo de cada tip */
+function normalizeTipSport(raw?: string): keyof typeof SPORT_CONFIG {
+  if (!raw) return 'futebol';
+  const s = raw
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase();
+  if (s.includes('esport')) return 'esports';
+  if (s.startsWith('fut') || s.includes('soccer') || s.includes('foot')) return 'futebol';
+  if (s.startsWith('basq') || s.includes('basket')) return 'basquete';
+  if (s.startsWith('ten')) return 'tenis';
   return 'futebol';
 }
 
@@ -121,7 +134,7 @@ async function fetchJson(url: string): Promise<unknown> {
 
 /* ---------- Componente ---------- */
 export default function SportContent() {
-  const params = useParams<{ slug: string }>(); // sua rota /tips/[slug]
+  const params = useParams<{ slug: string }>(); // /tips/[slug]
   const router = useRouter();
   const search = useSearchParams();
 
@@ -151,6 +164,7 @@ export default function SportContent() {
 
       list = Array.isArray(list) && list.length ? list : FALLBACK_TIPS;
 
+      // move highlight para o topo (se existir)
       if (highlightId) {
         const idx = list.findIndex((it) => String(it.id) === highlightId);
         if (idx > -1) {
@@ -158,6 +172,7 @@ export default function SportContent() {
           list = [h, ...list];
         }
       }
+
       setTips(list.slice(0, 12));
     } finally {
       setTipsLoading(false);
@@ -183,19 +198,14 @@ export default function SportContent() {
     };
   }, [loadTips]);
 
-  // lista “visível” (sem filtrar por esporte, igual ao exemplo que funciona)
+  // lista visível (misturada)
   const visible = useMemo(() => tips.slice(0, 12), [tips]);
 
-  // 2 destaques
+  // destaques = 2 primeiros
   const featured = useMemo<TipItem[]>(
     () => (Array.isArray(visible) ? visible.slice(0, 2) : []),
     [visible]
   );
-
-  // helpers que SEMPRE usam o cfg do slug (forçam imagem/título/sub mudar por página)
-  const forcedImage = cfg.cardImage;
-  const forcedTitle = (i: number) => `${cfg.cardTitleBase} #${i + 1}`;
-  const forcedSub = cfg.cardSub;
 
   // (opcional) select para navegar entre slugs
   const sportOptions: { value: keyof typeof SPORT_CONFIG; label: string }[] = [
@@ -205,7 +215,7 @@ export default function SportContent() {
     { value: 'esports', label: 'eSports' },
   ];
 
-  // handler para o shadcn/ui
+  // handler do Select (apenas muda a rota)
   const onChangeSportShadcn = (value: string) => {
     const next = value as keyof typeof SPORT_CONFIG;
     const qs = search?.toString();
@@ -214,7 +224,7 @@ export default function SportContent() {
 
   return (
     <main key={slug} className="bg-[#1E1E1E] text-white">
-      {/* HERO: */}
+      {/* HERO */}
       <div className="px-4">
         <div className="overflow-hidden relative">
           <Image
@@ -232,7 +242,6 @@ export default function SportContent() {
                 {cfg.bannerTitle}
               </h1>
 
-              {/* header com select (pode remover se usa só a Navbar) */}
               <div className="mt-6 mx-auto w-full max-w-7xl px-4">
                 <div className="rounded-xl bg-[#3f3f3f]/70 ring-1 ring-white/10 px-8 py-8 md:px-10 md:py-10 backdrop-blur">
                   <div className="flex items-center justify-between">
@@ -240,28 +249,22 @@ export default function SportContent() {
                       Top Previsões
                     </span>
 
-                    <div className="relative ">
+                    <div className="relative">
                       <label htmlFor="sport-select" className="sr-only">
                         Selecionar desporto
                       </label>
-
-                      {/* ===== shadcn/ui Select ===== */}
                       <Select defaultValue={slug} onValueChange={onChangeSportShadcn}>
                         <SelectTrigger
                           className="
-                             border-0 shadow-none
-                            px-0 py-0 text-[20px]
-                            text-[#ED4F00] font-bold
-                            focus:ring-0 focus:outline-none
+                            border-0 shadow-none px-0 py-0 text-[20px]
+                            text-[#ED4F00] font-bold focus:ring-0 focus:outline-none
                             data-[state=open]:bg-transparent
                           "
                         >
                           <SelectValue placeholder="Escolher desporto" />
                         </SelectTrigger>
                         <SelectContent
-                          className="
-                            bg-transparent border-0 shadow-none
-                            text-[#ED4F00]"
+                          className="bg-transparent border-0 shadow-none text-[#ED4F00]"
                         >
                           {sportOptions.map((opt) => (
                             <SelectItem
@@ -280,7 +283,6 @@ export default function SportContent() {
                           ))}
                         </SelectContent>
                       </Select>
-                      {/* =========================== */}
                     </div>
                   </div>
                 </div>
@@ -292,7 +294,7 @@ export default function SportContent() {
         </div>
       </div>
 
-      {/* Destaques (2) — usa SEMPRE cfg.cardImage + títulos do cfg */}
+      {/* Destaques (misturados por desporto de cada tip) */}
       <div className="mx-auto max-w-7xl px-4">
         <div className="mt-6 rounded-xl bg-[#1d2029] p-3">
           {tipsLoading ? (
@@ -314,9 +316,11 @@ export default function SportContent() {
           ) : (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {featured.map((tip, i) => {
+                const tipSport = normalizeTipSport(tip.sport);
+                const tipCfg = SPORT_CONFIG[tipSport];
                 const href =
                   tip && typeof tip.id !== 'undefined'
-                    ? `/tips/${tip.id}`
+                    ? `/tips/${tipSport}/${tip.id}`
                     : '#';
                 return (
                   <Link
@@ -326,8 +330,8 @@ export default function SportContent() {
                   >
                     <div className="relative aspect-[16/8]">
                       <Image
-                        src={forcedImage}                // ← força imagem do desporto
-                        alt={forcedTitle(i)}
+                        src={tipCfg.cardImage} // imagem do desporto da tip
+                        alt={tip.title || `${tipCfg.cardTitleBase} #${i + 1}`}
                         fill
                         className="object-cover transition-transform duration-300 group-hover:scale-105"
                         sizes="(min-width: 640px) 50vw, 100vw"
@@ -335,10 +339,10 @@ export default function SportContent() {
                       />
                       <div className="absolute inset-x-0 bottom-0 bg-black/55 backdrop-blur-sm p-3">
                         <p className="text-[11px] uppercase tracking-wide text-white/70">
-                          {forcedSub}
+                          {tip.league || tipCfg.cardSub}
                         </p>
                         <h3 className="line-clamp-2 text-sm font-semibold">
-                          {forcedTitle(i)}
+                          {tip.title || `${tipCfg.cardTitleBase} #${i + 1}`}
                         </h3>
                         {tip.odds ? (
                           <p className="mt-1 text-xs text-white/80">
@@ -355,7 +359,7 @@ export default function SportContent() {
         </div>
       </div>
 
-      {/* GRID (3 colunas) — também força imagem/título/sub por cfg */}
+      {/* GRID (misturada) */}
       <section className="mx-auto max-w-7xl px-3 py-6">
         {tipsLoading ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
@@ -375,37 +379,46 @@ export default function SportContent() {
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
-            {visible.map((tip, i) => (
-              <article
-                key={tip.id}
-                className="group relative overflow-hidden rounded-lg bg-[#1B1F2A] ring-1 ring-white/10 transition hover:ring-white/20"
-              >
-                <div className="relative aspect-[16/10]">
-                  <Image
-                    src={forcedImage}                  // ← SEMPRE cfg.cardImage
-                    alt={forcedTitle(i)}
-                    fill
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-x-0 bottom-0 bg-black/55 backdrop-blur-sm p-3">
-                    <p className="text-[11px] uppercase tracking-wide text-white/70">
-                      {forcedSub}
-                    </p>
-                    <h3 className="line-clamp-2 text-sm font-semibold">
-                      {forcedTitle(i)}
-                    </h3>
-                    <p className="text-xs text-white/80">
-                      {tip.teams || '—'}
-                      {tip.odds ? ` • @${tip.odds}` : ''}
-                    </p>
+            {visible.map((tip, i) => {
+              const tipSport = normalizeTipSport(tip.sport);
+              const tipCfg = SPORT_CONFIG[tipSport];
+              return (
+                <article
+                  key={tip.id}
+                  onClick={() => {
+                    if (typeof tip.id !== 'undefined') {
+                      router.push(`/tips/${tipSport}/${tip.id}`);
+                    }
+                  }}
+                  className="group relative overflow-hidden rounded-lg bg-[#1B1F2A] ring-1 ring-white/10 transition hover:ring-white/20 cursor-pointer"
+                >
+                  <div className="relative aspect-[16/10]">
+                    <Image
+                      src={tipCfg.cardImage}
+                      alt={tip.title || `${tipCfg.cardTitleBase} #${i + 1}`}
+                      fill
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-x-0 bottom-0 bg-black/55 backdrop-blur-sm p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-white/70">
+                        {tip.league || tipCfg.cardSub}
+                      </p>
+                      <h3 className="line-clamp-2 text-sm font-semibold">
+                        {tip.title || `${tipCfg.cardTitleBase} #${i + 1}`}
+                      </h3>
+                      <p className="text-xs text-white/80">
+                        {tip.teams || '—'}
+                        {tip.odds ? ` • @${tip.odds}` : ''}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </div>
         )}
 
-        {/* paginação */}
+        {/* paginação (mock) */}
         <div className="mt-6 flex items-center justify-between">
           <nav className="flex items-center gap-2 left">
             <button className="rounded-md px-3 py-1.5 text-sm ring-1 ring-white/10 hover:bg-white/5">

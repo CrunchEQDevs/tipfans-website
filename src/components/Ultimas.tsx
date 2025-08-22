@@ -98,16 +98,16 @@ export default function Hero() {
         </div>
 
         {/* GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
           {/* CARD MAIOR */}
-          <article className="overflow-hidden rounded-xl border border-gray-800 bg-gray-800/50 shadow-xl backdrop-blur-sm">
+          <article className="h-full flex flex-col overflow-hidden rounded-xl border border-gray-800 bg-gray-800/50 shadow-xl backdrop-blur-sm">
             <div className="relative h-56 sm:h-64 md:h-[320px]">
               <Image
                 src={news[0].image}
                 alt={news[0].title}
                 fill
                 className="object-cover"
-                sizes="(max-width: 768px) 100vw, (max-width: 1280px) 66vw, 66vw"
+                sizes="(max-width: 768px) 100vw, (max-width: 1280px) 80vw, 80vw"
                 priority
               />
             </div>
@@ -135,24 +135,24 @@ export default function Hero() {
           </article>
 
           {/* COLUNA DIREITA: 2 cards horizontais */}
-          <div className="flex flex-col gap-6">
+          <div className="grid grid-rows-2 gap-8 h-full">
             {[news[1], news[2]].map((item, idx) => (
               <article
                 key={idx}
-                className="flex flex-col sm:flex-row gap-4 overflow-hidden rounded-xl border border-gray-800 bg-gray-800/50 shadow-lg"
+                className="flex flex-col sm:flex-row h-full overflow-hidden rounded-xl border border-gray-800 bg-gray-800/50 shadow-lg"
               >
                 {/* wrapper da imagem */}
-                <div className="relative w-full sm:w-48 md:w-56 lg:w-64 h-40 sm:h-32 md:h-36 lg:h-40 shrink-0">
+                <div className="relative w-full sm:w-48 md:w-56 lg:w-64 h-60 sm:h-44 md:h-36 lg:h-60 shrink-0">
                   <Image
                     src={item.image}
                     alt={item.title}
                     fill
                     className="h-full w-full object-cover"
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 40vw, 320px"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 60vw, 620px"
                   />
                 </div>
 
-                <div className="flex flex-1 flex-col justify-between p-4">
+                <div className="flex flex-1 flex-col justify-between p-8">
                   <div>
                     <p className="text-[11px] sm:text-[12px] text-gray-400">
                       <span className={`font-semibold ${item.tagColor}`}>
