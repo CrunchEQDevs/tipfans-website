@@ -151,3 +151,5 @@ export default function LoginPanel({ isOpen, onClose }: LoginPanelProps) {
     </AnimatePresence>
   );
 }
+
+

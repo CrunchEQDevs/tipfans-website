@@ -2,10 +2,10 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import Footer from '@/components/Footer';
-
 import { ThemeProvider } from '@/components/theme-provider';
 import { AuthProvider } from '@/context/AuthContext';
-import Navbar from '@/components/Navbar'; // 👈 Adicione aqui
+import Navbar from '@/components/Navbar';
+
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
 const geistMono = Geist_Mono({
@@ -27,7 +27,7 @@ export default function RootLayout({
     <html lang="en" className="scroll-smooth" suppressHydrationWarning>
       <body
         suppressHydrationWarning
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-200 dark:bg-gray-700 text-black dark:text-white transition-colors duration-500`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-200 dark:bg-gray-700 text-black dark:text-white transition-colors duration-500 pt-[186px]`}
       >
         <AuthProvider>
           <ThemeProvider

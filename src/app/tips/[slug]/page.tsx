@@ -8,9 +8,15 @@ import {
   useState,
   useCallback,
   useMemo,
-  ChangeEvent,
 } from 'react';
 import { useSearchParams, useParams, useRouter } from 'next/navigation';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'; // 👈 shadcn/ui
 
 /* ---------- Tipos ---------- */
 type TipItem = {
@@ -24,15 +30,6 @@ type TipItem = {
   author?: string;
   image?: string;
   createdAt?: string;
-};
-type GameItem = {
-  id: string;
-  home: string;
-  away: string;
-  league?: string;
-  startAt?: string;
-  href?: string;
-  odds?: { H?: number; D?: number; A?: number };
 };
 
 /* ---------- Endpoints & Fallbacks ---------- */
@@ -207,15 +204,17 @@ export default function SportContent() {
     { value: 'basquete', label: 'Basquetebol' },
     { value: 'esports', label: 'eSports' },
   ];
-  function onChangeSport(e: ChangeEvent<HTMLSelectElement>) {
-    const next = e.target.value as keyof typeof SPORT_CONFIG;
+
+  // handler para o shadcn/ui
+  const onChangeSportShadcn = (value: string) => {
+    const next = value as keyof typeof SPORT_CONFIG;
     const qs = search?.toString();
     router.push(qs ? `/tips/${next}?${qs}` : `/tips/${next}`);
-  }
+  };
 
   return (
     <main key={slug} className="bg-[#1E1E1E] text-white">
-      {/* HERO: NÃO alterado */}
+      {/* HERO: */}
       <div className="px-4">
         <div className="overflow-hidden relative">
           <Image
@@ -235,55 +234,58 @@ export default function SportContent() {
 
               {/* header com select (pode remover se usa só a Navbar) */}
               <div className="mt-6 mx-auto w-full max-w-7xl px-4">
-                <div className="rounded-xl bg-[#3f3f3f]/70 ring-1 ring-white/10 px-4 py-3 md:px-5 md:py-4 backdrop-blur">
+                <div className="rounded-xl bg-[#3f3f3f]/70 ring-1 ring-white/10 px-8 py-8 md:px-10 md:py-10 backdrop-blur">
                   <div className="flex items-center justify-between">
                     <span className="text-[20px] md:text-xl font-bold uppercase tracking-wide text-white/90">
                       Top Previsões
                     </span>
 
-                    <div className="relative">
+                    <div className="relative ">
                       <label htmlFor="sport-select" className="sr-only">
                         Selecionar desporto
                       </label>
-                      <select
-                        id="sport-select"
-                        value={slug}
-                        onChange={onChangeSport}
-                        className="
-                          appearance-none bg-transparent border-0
-                          text-[#ED4F00] font-semibold text-sm md:text-base
-                          pr-6 pl-1 py-1 cursor-pointer
-                          focus:outline-none focus:ring-0
-                        "
-                      >
-                        {sportOptions.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
-                      {/* chevron */}
-                      <svg
-                        className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 h-4 w-4 text-white/90"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        aria-hidden="true"
-                      >
-                        <path d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" />
-                      </svg>
-                    </div>
-                  </div>
 
-                  <div className="mt-3 rounded-md bg-white/10 px-3 py-2 text-sm text-white/80 flex gap-8">
-                    <span className="relative pl-4">
-                      <span className="absolute left-0 top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-[#ED4F00]" />
-                      Hoje
-                    </span>
-                    <span>Amanhã</span>
-                    <span>Em breve</span>
+                      {/* ===== shadcn/ui Select ===== */}
+                      <Select defaultValue={slug} onValueChange={onChangeSportShadcn}>
+                        <SelectTrigger
+                          className="
+                             border-0 shadow-none
+                            px-0 py-0 text-[20px]
+                            text-[#ED4F00] font-bold
+                            focus:ring-0 focus:outline-none
+                            data-[state=open]:bg-transparent
+                          "
+                        >
+                          <SelectValue placeholder="Escolher desporto" />
+                        </SelectTrigger>
+                        <SelectContent
+                          className="
+                            bg-transparent border-0 shadow-none
+                            text-[#ED4F00]"
+                        >
+                          {sportOptions.map((opt) => (
+                            <SelectItem
+                              key={opt.value}
+                              value={opt.value}
+                              className="
+                                bg-transparent text-[#ED4F00]
+                                hover:bg-transparent hover:text-[#ED4F00]
+                                focus:bg-transparent focus:text-white
+                                data-[state=checked]:bg-transparent data-[state=checked]:text-white
+                                text-[20px]
+                              "
+                            >
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {/* =========================== */}
+                    </div>
                   </div>
                 </div>
               </div>
+
               {/* /header */}
             </div>
           </div>
@@ -393,7 +395,7 @@ export default function SportContent() {
                       {forcedTitle(i)}
                     </h3>
                     <p className="text-xs text-white/80">
-                      {(tip.teams || '—')}
+                      {tip.teams || '—'}
                       {tip.odds ? ` • @${tip.odds}` : ''}
                     </p>
                   </div>

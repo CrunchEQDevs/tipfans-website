@@ -9,13 +9,13 @@ import {
   FaFacebookF,
   FaInstagram,
   FaYoutube,
-  FaEnvelope,
   FaSearch,
   FaBars,
   FaTimes,
+  FaDiscord,
 } from 'react-icons/fa';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUserPlus, faMoon, faSun } from '@fortawesome/free-solid-svg-icons';
+import { faMoon, faSun } from '@fortawesome/free-solid-svg-icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import LoginPanel from './LoginPanel';
 import { useAuth } from '@/context/AuthContext';
@@ -103,27 +103,27 @@ export default function Navbar() {
 
   return (
     <>
-      <header className="w-full">
+      <header className="w-full fixed inset-x-0 top-0 z-50">
         {/* Topo */}
         <div className="bg-[#1E1E1E] px-4 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4 ml-4 md:ml-56">
+          <div className="flex items-center gap-4 ml-4 md:ml-32">
             {mounted && (
               <Image
                 onClick={scrollToHome}
                 src="/Logo_TipFans.png"
                 alt="Logo"
-                width={180}
+                width={220}
                 height={60}
                 className="h-auto cursor-pointer"
                 priority
               />
             )}
           </div>
-          <div className="hidden md:flex items-center gap-4 text-white text-lg mr-56">
-            <FaEnvelope className="cursor-pointer hover:scale-110 transition" />
-            <FaFacebookF className="cursor-pointer hover:scale-110 transition" />
-            <FaInstagram className="cursor-pointer hover:scale-110 transition" />
-            <FaYoutube className="cursor-pointer hover:scale-110 transition" />
+          <div className=" md:flex items-center gap-3 text-black text-lg mr-32">
+            <FaDiscord className="cursor-pointer hover:scale-110 transition bg-[#EBEBEB] w-6 h-6 rounded-[3px]" />
+            <FaFacebookF className="cursor-pointer hover:scale-110 transition bg-[#EBEBEB] w-6 h-6 rounded-[3px]" />
+            <FaInstagram className="cursor-pointer hover:scale-110 transition bg-[#EBEBEB] w-6 h-6 rounded-[3px]" />
+            <FaYoutube className="cursor-pointer hover:scale-110 transition bg-[#EBEBEB] w-6 h-6 rounded-[3px]" />
           </div>
 
           {/* Botão hamburguer para mobile */}
@@ -194,8 +194,7 @@ export default function Navbar() {
                 <input
                   type="text"
                   placeholder="Pesquisar"
-                  className="pl-8 pr-3 py-1 rounded bg-[#2a2a2a] text-white placeholder:text-gray-400 text-sm focus:outline-none"
-                />
+                  className="pl-8 pr-3 py-1 rounded bg-transparent text-white placeholder:text-gray-400 text-sm focus:outline-none"  />
               </div>
 
               {user ? (
@@ -208,16 +207,15 @@ export default function Navbar() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => setLoginOpen(true)}
-                    className="bg-[#ff4500] hover:opacity-90 transition px-4 py-1.5 text-white text-sm rounded flex items-center gap-2"
+                    className="bg-[#1E1E1E] hover:bg-gray-700 font-bold hover:opacity-90 transition px-4 py-1.5 text-white text-sm rounded flex items-center gap-2"
                   >
-                    <FontAwesomeIcon icon={faUserPlus} />
-                    Login
+                    Entrar
                   </button>
                   <Link
                     href="/registro"
-                    className="bg-blue-600 hover:bg-blue-700 transition px-4 py-1.5 text-white text-sm rounded flex items-center gap-2"
+                    className="bg-[#ff4500] hover:bg-gray-700 font-bold transition px-4 py-1.5 text-white text-sm rounded flex items-center gap-2 "
                   >
-                    Criar Conta
+                    Registar
                   </Link>
                 </div>
               )}
@@ -229,7 +227,7 @@ export default function Navbar() {
         <AnimatePresence>
           {mobileOpen && (
             <motion.div
-              className="md:hidden px-4 py-4 bg-white dark:bg-black space-y-4"
+              className="md:hidden px-4 py-4 bg-[#1E1E1E] dark:bg-black space-y-4 text-rose-700"
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
@@ -243,7 +241,7 @@ export default function Navbar() {
                     {item.submenu.map((subItem, index) => (
                       <a href={`${subItem.href}`}
                         key={index}
-                        className="block text-sm opacity-80 text-gray-700 dark:text-gray-300"
+                        className="block text-sm opacity-80 text-gray-100 dark:text-gray-100"
                       >
                         {subItem.href}
                       </a>

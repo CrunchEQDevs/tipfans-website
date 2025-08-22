@@ -24,7 +24,7 @@ const tips: TipCard[] = [
       'Lorem Ipsum is simply dummy text of the printing and typesetting industry.',
     autorLinha: 'Por Autor – 27 de Setembro de 2023 | 10:30',
     image: '/noticia3.jpg',
-    href: '/tips/1',
+    href: '/tips/futebol', // OK
   },
   {
     id: '2',
@@ -36,7 +36,7 @@ const tips: TipCard[] = [
       'Lorem Ipsum is simply dummy text of the printing and typesetting industry.',
     autorLinha: 'Por Autor – 27 de Setembro de 2023 | 10:30',
     image: '/noticia2.jpg',
-    href: '/tips/2',
+    href: '/tips/basquete', // ✅ 
   },
   {
     id: '3',
@@ -47,24 +47,26 @@ const tips: TipCard[] = [
       'Lorem Ipsum is simply dummy text of the printing and typesetting industry.',
     autorLinha: 'Por Autor – 27 de Setembro de 2023 | 10:30',
     image: '/noticia3.jpg',
-    href: '/tips/3',
+    href: '/tips/tenis', // ✅
   },
 ];
 
 export default function Hero2() {
   return (
     <section className="relative w-full bg-[#1E1E1E] py-10 md:pt-10 ">
-        <div className=' w-1/2 top-[10%] absolute'>
-            <Image
-            src={'/NEWS.png'}
-            alt={''}
-            width={1000}
-            height={300}
-            className="object-cover"
-            sizes="(max-width: 1024px) 100vw, 33vw"
-            priority
+      {/* banner decorativo; não bloquear cliques dos cards */}
+      <div className="pointer-events-none w-1/2 top-[10%] absolute">
+        <Image
+          src={'/NEWS.png'}
+          alt={'News'}
+          width={1000}
+          height={300}
+          className="object-cover"
+          sizes="(max-width: 1024px) 100vw, 33vw"
+          priority
         />
-        </div>
+      </div>
+
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 flex select-none items-center justify-center opacity-5"
@@ -82,7 +84,7 @@ export default function Hero2() {
           </h2>
 
           <Link
-            href="/"
+            href={tips[0].href} // ✅ aponta para o mesmo caminho das tips (primeiro card)
             className="group inline-flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-white"
           >
             Ver Mais
@@ -119,7 +121,7 @@ export default function Hero2() {
                   priority
                 />
 
-                {/* Triângulo laranja + label azul (como na imagem) */}
+                {/* Triângulo laranja + label azul */}
                 <div className="absolute top-4 left-0 flex items-center">
                   <span
                     aria-hidden
@@ -146,7 +148,7 @@ export default function Hero2() {
 
                 <div className="pt-1">
                   <Link
-                    href={'/'}
+                    href={tip.href} // ✅ agora leva para /tips/[slug] de cada card
                     className="inline-block rounded-md bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500/60"
                   >
                     Ver Mais

@@ -14,7 +14,6 @@ export default function Home() {
       <TipsDia />
       <Ultimas />
       <RankingMestresSection />
-
     </div>
   );
 }
