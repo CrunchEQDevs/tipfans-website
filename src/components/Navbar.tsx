@@ -20,7 +20,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import LoginPanel from './LoginPanel';
 import { useAuth } from '@/context/AuthContext';
 
-/* ====== APENAS ESTE BLOCO FOI AJUSTADO (submenu como strings) ====== */
+/* ====== MENU ITEMS COM DICAS ====== */
 const menuItems = [
   {
     title: 'ÚLTIMAS',
@@ -34,23 +34,24 @@ const menuItems = [
   },
   {
     title: 'TIPS',
-    href: '/tips',
+    // 👉 agora aponta para a rota pública final: /tips/dicas/:slug
+    href: '/tips/dicas/futebol',
     submenu: [
-      { label: 'Futebol', href: '/tips/futebol/' },
-      { label: 'Tênis', href: '/tips/tennis' },
-      { label: 'Basquete', href: '/tips/basketball' },
-      { label: 'Esports', href: '/tips/esports' },
-      { label: 'Dicas de Hoje', href: '/tips/hoje' },
-      { label: 'Dicas de Amanhã', href: '/tips/amanha' },
-      { label: 'Em breve', href: '/tips/embreve' },
+      { label: 'Futebol',  href: '/tips/futebol'  },
+      { label: 'Ténis',    href: '/tips/tenis'    },
+      { label: 'Basquete', href: '/tips/basquete' },
+      { label: 'Esports',  href: '/tips/esports'  },
+      { label: 'Dicas de Hoje',   href: '/tips/dicas/futebol?when=today' },
+      { label: 'Dicas de Amanhã', href: '/tips/dicas/futebol?when=tomorrow' },
+      { label: 'Em Breve',        href: '/tips/dicas/futebol?when=soon' },
     ],
-  },    
+  },
   {
     title: 'TIPSTERS',
     href: '/tipsters',
     submenu: [
-      { label: 'Nuno Cunha', href: '/tipsters/nunocunha' },
-      { label: 'Domenico Pepe', href: '/tipsters/domenicopepe' },
+      { label: 'Nuno Cunha',     href: '/tipsters/nunocunha' },
+      { label: 'Domenico Pepe',  href: '/tipsters/domenicopepe' },
       { label: 'Amanda vidigal', href: '/tipsters/amandavidigal' },
     ],
   },
@@ -70,7 +71,6 @@ const menuItems = [
     ],
   },
 ];
-/* ==================================================================== */
 
 export default function Navbar() {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
@@ -155,7 +155,9 @@ export default function Navbar() {
                   onMouseEnter={() => setOpenMenu(item.title)}
                   onMouseLeave={() => setOpenMenu(null)}
                 >
+                  {/* 👉 Torna o título clicável para navegar para item.href */}
                   <button
+                    onClick={() => router.push(item.href)}
                     className={`transition hover:text-yellow-300 ${
                       pathname.includes(item.title.toLowerCase()) ? 'text-yellow-300' : ''
                     }`}
@@ -172,13 +174,13 @@ export default function Navbar() {
                         exit={{ opacity: 0, y: 10 }}
                       >
                         {item.submenu.map((subItem, index) => (
-                          <a 
+                          <Link
                             key={index}
                             href={subItem.href}
                             className="block px-4 py-2 text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition cursor-pointer"
                           >
                             {subItem.label}
-                          </a>
+                          </Link>
                         ))}
                       </motion.div>
                     )}
@@ -239,12 +241,14 @@ export default function Navbar() {
                   </p>
                   <div className="pl-4 space-y-1">
                     {item.submenu.map((subItem, index) => (
-                      <a href={`${subItem.href}`}
+                      <Link
+                        href={subItem.href}
                         key={index}
+                        onClick={() => setMobileOpen(false)}
                         className="block text-sm opacity-80 text-gray-100 dark:text-gray-100"
                       >
-                        {subItem.href}
-                      </a>
+                        {subItem.label}
+                      </Link>
                     ))}
                   </div>
                 </div>

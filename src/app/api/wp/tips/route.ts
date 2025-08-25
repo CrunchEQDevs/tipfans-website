@@ -164,3 +164,91 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true, tip: { id, link } });
 }
+// --- [ADICIONAR NO TOPO, após imports] ------------------
+type TipCard = {
+  id: string | number;
+  dateISO: string;             // ex.: "2025-08-28T20:45:00Z"
+  league?: string;
+  home: string;
+  away: string;
+  hotTip?: string;
+  pick?: string;
+  bothTeamsScore?: "YES" | "NO";
+  correctScore?: string;
+  ctaUrl?: string;
+};
+
+// Mapeia a resposta do WP para o formato TipCard
+function mapWpToTipCard(item: any): TipCard {
+  return {
+    id: item?.id ?? item?.ID ?? Math.random().toString(36).slice(2),
+    dateISO:
+      item?.dateISO ??
+      item?.datetime ??
+      item?.date_gmt ??
+      new Date().toISOString(),
+    league: item?.league ?? item?.meta?.league ?? item?.categories?.[0]?.name,
+    home: item?.home ?? item?.teams?.home ?? item?.meta?.home ?? "Home",
+    away: item?.away ?? item?.teams?.away ?? item?.meta?.away ?? "Away",
+    hotTip: item?.hotTip ?? item?.meta?.hotTip,
+    pick: item?.pick ?? item?.meta?.pick,
+    bothTeamsScore:
+      item?.bothTeamsScore ?? item?.meta?.btts ?? undefined,
+    correctScore: item?.correctScore ?? item?.meta?.correctScore,
+    ctaUrl: item?.ctaUrl ?? item?.link ?? item?.permalink,
+  };
+}
+// ---------------------------------------------------------
+
+// --- [NOVO HANDLER GET] ---------------------------------
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const sport = (searchParams.get("sport") || "futebol").toLowerCase();
+  const when = (searchParams.get("when") || "today")
+    .toLowerCase() as "today" | "tomorrow" | "soon";
+
+  // monta endpoint do WP (aproveita o teu helper existente)
+  const urlBase = typeof tipsEndpoint === "function" ? tipsEndpoint() : "";
+  if (!urlBase) {
+    return NextResponse.json(
+      { ok: false, error: "tipsEndpoint() inválido." },
+      { status: 500 }
+    );
+  }
+
+  // passamos sport/when como query — o teu endpoint WP decide como filtrar
+  const sep = urlBase.includes("?") ? "&" : "?";
+  const url = `${urlBase}${sep}sport=${encodeURIComponent(
+    sport
+  )}&when=${encodeURIComponent(when)}&status=publish&per_page=20`;
+
+  const auth = (typeof wpAuthHeader === "function" ? wpAuthHeader() : null) as
+    | Record<string, string>
+    | null;
+
+  const headers: Record<string, string> = {
+    Accept: "application/json",
+    ...(auth ?? {}),
+  };
+
+  try {
+    const r = await fetch(url, { method: "GET", headers, cache: "no-store" });
+    const text = await r.text();
+
+    // tenta JSON com segurança
+    let raw: any = [];
+    try {
+      raw = JSON.parse(text);
+    } catch {
+      raw = [];
+    }
+
+    const arr = Array.isArray(raw) ? raw : [];
+    const data: TipCard[] = arr.map(mapWpToTipCard);
+
+    return NextResponse.json(data, { status: 200 });
+  } catch (e: any) {
+    return NextResponse.json([], { status: 200 });
+  }
+}
+// ---------------------------------------------------------
