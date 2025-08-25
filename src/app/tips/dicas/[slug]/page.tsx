@@ -3,7 +3,32 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import TipAccordion from "@/components/dicasPage/TipAccordion";
 
-// ========= SEO =========
+/* ===================== helpers de tipo/segurança ===================== */
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+function getRec(v: unknown, key: string): Record<string, unknown> | undefined {
+  if (!isRecord(v)) return undefined;
+  const val = v[key];
+  return isRecord(val) ? (val as Record<string, unknown>) : undefined;
+}
+function getStr(v: unknown): string | undefined {
+  return typeof v === "string" ? v : undefined;
+}
+function getNum(v: unknown): number | undefined {
+  return typeof v === "number" ? v : undefined;
+}
+function getBool(v: unknown): boolean | undefined {
+  return typeof v === "boolean" ? v : undefined;
+}
+function toISODateSafe(v: unknown): string {
+  const s = typeof v === "string" ? v : undefined;
+  const n = typeof v === "number" ? v : undefined;
+  const d = s ? new Date(s) : n ? new Date(n) : new Date();
+  return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+}
+
+/* ===================== SEO ===================== */
 export async function generateMetadata({
   params,
 }: {
@@ -22,7 +47,7 @@ export async function generateMetadata({
   };
 }
 
-// ========= Tipos =========
+/* ===================== Tipos ===================== */
 type WhenKey = "today" | "tomorrow" | "soon";
 export type TipCard = {
   id: string | number;
@@ -37,7 +62,7 @@ export type TipCard = {
   ctaUrl?: string;
 };
 
-// ========= UI (Banner fixo) =========
+/* ===================== UI (Banner fixo) ===================== */
 function TitleBanner({ right }: { right?: string }) {
   return (
     <div className="relative overflow-hidden border-b border-neutral-800 h-[250px]">
@@ -119,32 +144,66 @@ function TabsLinks({ sport, active }: { sport: string; active: WhenKey }) {
   );
 }
 
-// ========= Helpers =========
-function yn(val: any): "YES" | "NO" | undefined {
-  if (val === true || `${val}`.toLowerCase() === "yes" || `${val}`.toLowerCase() === "sim") return "YES";
-  if (val === false || `${val}`.toLowerCase() === "no" || `${val}`.toLowerCase() === "não" || `${val}`.toLowerCase() === "nao") return "NO";
+/* ===================== Helpers de normalização ===================== */
+function yn(val: unknown): "YES" | "NO" | undefined {
+  if (getBool(val) === true) return "YES";
+  if (getBool(val) === false) return "NO";
+  const s = getStr(val)?.toLowerCase();
+  if (s === "yes" || s === "sim") return "YES";
+  if (s === "no" || s === "não" || s === "nao") return "NO";
   return undefined;
 }
 
-function normalizeItem(it: any): TipCard {
-  const meta = it?.meta ?? it?.acf ?? it ?? {};
+function normalizeItem(it: unknown): TipCard {
+  const o = isRecord(it) ? it : {};
+  const meta =
+    getRec(o, "meta") ??
+    getRec(o, "acf") ??
+    (isRecord(o) ? (o as Record<string, unknown>) : {});
+
   const dateRaw =
-    it?.dateISO ?? meta?.dateISO ?? meta?.datetime ?? meta?.match_date ?? it?.date_gmt ?? new Date().toISOString();
+    getStr(o.dateISO) ||
+    (meta && (getStr(meta.dateISO) || getStr(meta.datetime) || getStr(meta.match_date))) ||
+    getStr(o.date_gmt) ||
+    new Date().toISOString();
+
+  const categories = Array.isArray(o.categories) ? (o.categories as unknown[]) : [];
+  const cat0 = categories.length > 0 && isRecord(categories[0]) ? (categories[0] as Record<string, unknown>) : undefined;
+
+  const teams = getRec(meta, "teams");
+
   return {
-    id: it?.id ?? it?.ID ?? Math.random().toString(36).slice(2),
-    dateISO: new Date(dateRaw).toString() === "Invalid Date" ? new Date().toISOString() : new Date(dateRaw).toISOString(),
-    league: it?.league ?? meta?.league ?? it?.categories?.[0]?.name,
-    home: it?.home ?? meta?.home ?? meta?.home_team ?? meta?.teams?.home ?? "Home",
-    away: it?.away ?? meta?.away ?? meta?.away_team ?? meta?.teams?.away ?? "Away",
-    hotTip: it?.hotTip ?? meta?.hotTip ?? meta?.dica_quente,
-    pick: it?.pick ?? meta?.pick ?? meta?.main_pick,
-    bothTeamsScore: yn(it?.bothTeamsScore ?? meta?.btts ?? meta?.ambas_marcam),
-    correctScore: it?.correctScore ?? meta?.correct_score,
-    ctaUrl: it?.ctaUrl ?? it?.link ?? it?.permalink ?? meta?.cta_url,
+    id:
+      getNum(o.id) ??
+      getStr(o.id) ??
+      getNum(o.ID) ??
+      getStr(o.ID) ??
+      Math.random().toString(36).slice(2),
+    dateISO: toISODateSafe(dateRaw),
+    league: getStr(o.league) || (meta && getStr(meta.league)) || (cat0 && getStr(cat0.name)),
+    home:
+      getStr(o.home) ||
+      (meta && (getStr(meta.home) || getStr(meta.home_team))) ||
+      (teams && getStr(teams.home)) ||
+      "Home",
+    away:
+      getStr(o.away) ||
+      (meta && (getStr(meta.away) || getStr(meta.away_team))) ||
+      (teams && getStr(teams.away)) ||
+      "Away",
+    hotTip: getStr(o.hotTip) || (meta && (getStr(meta.hotTip) || getStr(meta.dica_quente))),
+    pick: getStr(o.pick) || (meta && (getStr(meta.pick) || getStr(meta.main_pick))),
+    bothTeamsScore: yn(o.bothTeamsScore ?? (meta && (meta.btts ?? meta.ambas_marcam))),
+    correctScore: getStr(o.correctScore) || (meta && getStr(meta.correct_score)),
+    ctaUrl:
+      getStr(o.ctaUrl) ||
+      getStr(o.link) ||
+      getStr(o.permalink) ||
+      (meta && getStr(meta.cta_url)),
   };
 }
 
-// DEMO local
+/* ===================== DEMO local (fallback) ===================== */
 const DEMO: Record<WhenKey, TipCard[]> = {
   today: [
     {
@@ -199,13 +258,17 @@ const DEMO: Record<WhenKey, TipCard[]> = {
   ],
 };
 
-// Data (Server)
+/* ===================== Data (Server) ===================== */
 async function fetchTips(sport: string, when: WhenKey): Promise<TipCard[]> {
   try {
-    const r = await fetch(`/api/tips/dicas/${encodeURIComponent(sport)}?when=${when}`, { cache: "no-store" });
+    // Em componentes server do Next 13+/15+, fetch relativo para /api funciona
+    const r = await fetch(
+      `/api/tips/dicas/${encodeURIComponent(sport)}?when=${when}`,
+      { cache: "no-store" }
+    );
     if (!r.ok) return DEMO[when];
-    const raw = await r.json();
-    const arr = Array.isArray(raw) ? raw : [];
+    const raw: unknown = await r.json();
+    const arr = Array.isArray(raw) ? (raw as unknown[]) : [];
     const mapped = arr.map(normalizeItem).filter((x) => x.home && x.away);
     return mapped.length ? mapped : DEMO[when];
   } catch {
@@ -224,7 +287,7 @@ function cloneTip(base: TipCard, idx: number): TipCard {
   };
 }
 
-// ========= Página =========
+/* ===================== Página ===================== */
 export default async function Page({
   params,
   searchParams,
@@ -235,8 +298,10 @@ export default async function Page({
   const sport = (params.slug || "").toLowerCase();
 
   const q = (searchParams?.when || "").toLowerCase();
-  const active: WhenKey = q === "tomorrow" ? "tomorrow" : q === "soon" ? "soon" : "today";
-  const whenLabel = active === "today" ? "hoje" : active === "tomorrow" ? "amanhã" : "em breve";
+  const active: WhenKey =
+    q === "tomorrow" ? "tomorrow" : q === "soon" ? "soon" : "today";
+  const whenLabel =
+    active === "today" ? "hoje" : active === "tomorrow" ? "amanhã" : "em breve";
 
   const tips = await fetchTips(sport, active);
 

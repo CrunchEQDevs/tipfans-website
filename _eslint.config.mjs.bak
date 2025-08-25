@@ -1,6 +1,8 @@
+// eslint.config.mjs
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { FlatCompat } from '@eslint/eslintrc';
+import nextPlugin from '@next/eslint-plugin-next';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -9,6 +11,18 @@ const compat = new FlatCompat({
   baseDirectory: __dirname,
 });
 
+// exporta config em formato Flat ESLint
 export default [
+  // traz as regras herdadas do preset do Next
   ...compat.extends('next/core-web-vitals', 'next/typescript'),
+
+  // adiciona explicitamente o plugin do Next
+  {
+    plugins: {
+      '@next/next': nextPlugin,
+    },
+    rules: {
+      ...nextPlugin.configs['core-web-vitals'].rules,
+    },
+  },
 ];
