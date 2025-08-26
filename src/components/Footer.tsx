@@ -74,8 +74,8 @@ export default function Footer() {
         </div >
 
       </div>
-      <div className="flex justify-center items-center py-4 ">
-       <p className={`text-sm ${getTextColor()}`}>
+      <div className="flex justify-center items-center mb-0 pb-0 mt-2">
+       <p className={`text-sm `}>
             &copy; {new Date().getFullYear()} 
             Copyright © 2025 - Direitos reservados - TipFans
           </p>

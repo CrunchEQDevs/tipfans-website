@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { HiOutlinePlay } from 'react-icons/hi2';
 
 type TipCard = {
   id: string;
@@ -9,7 +10,7 @@ type TipCard = {
   titulo: string;
   data: string;
   resumo: string;
-  autorLinha: string; // ex.: "Por Autor – 27 de Setembro de 2023 | 10:30"
+  autorLinha: string;
   image: string;
   href: string;
 };
@@ -20,86 +21,65 @@ const tips: TipCard[] = [
     categoria: 'Futebol',
     titulo: 'Palpite, odds e dicas de apostas Nice x Benfica',
     data: '06/08/2025',
-    resumo:
-      'Lorem Ipsum is simply dummy text of the printing and typesetting industry.',
+    resumo: 'Lorem Ipsum is simply dummy text of the printing and typesetting industry.',
     autorLinha: 'Por Autor – 27 de Setembro de 2023 | 10:30',
     image: '/noticia3.jpg',
-    href: '/tips/futebol', // OK
+    href: '/tips/futebol',
   },
   {
     id: '2',
     categoria: 'Basquetebol',
-    titulo:
-      'Miami Heat vence o Atlanta Hawks e vai enfrentar os Cavaliers nos playoffs da NBA',
+    titulo: 'Miami Heat vence o Atlanta Hawks e vai enfrentar os Cavaliers nos playoffs da NBA',
     data: '—',
-    resumo:
-      'Lorem Ipsum is simply dummy text of the printing and typesetting industry.',
+    resumo: 'Lorem Ipsum is simply dummy text of the printing and typesetting industry.',
     autorLinha: 'Por Autor – 27 de Setembro de 2023 | 10:30',
     image: '/noticia2.jpg',
-    href: '/tips/basquete', // ✅ 
+    href: '/tips/basquete',
   },
   {
     id: '3',
     categoria: 'Ténis',
     titulo: 'Palpite, odds e dicas de apostas Nice x Benfica',
     data: '06/08/2025',
-    resumo:
-      'Lorem Ipsum is simply dummy text of the printing and typesetting industry.',
+    resumo: 'Lorem Ipsum is simply dummy text of the printing and typesetting industry.',
     autorLinha: 'Por Autor – 27 de Setembro de 2023 | 10:30',
     image: '/noticia3.jpg',
-    href: '/tips/tenis', // ✅
+    href: '/tips/tenis',
   },
 ];
 
 export default function Hero2() {
   return (
-    <section className="relative w-full bg-[#1E1E1E] py-10 md:pt-10 ">
-      {/* banner decorativo; não bloquear cliques dos cards */}
-      <div className="pointer-events-none w-1/2 top-[10%] absolute">
+    <section className="relative w-full bg-[#1E1E1E] py-10 md:pt-10">
+      {/* banner decorativo (não bloqueia cliques) */}
+      <div className="pointer-events-none absolute top-0 w-1/2">
         <Image
-          src={'/NEWS.png'}
-          alt={'News'}
-          width={1000}
+          src="/TIPS_menu.png"
+          alt="News"
+          width={1900}
           height={300}
           className="object-cover"
-          sizes="(max-width: 1024px) 100vw, 33vw"
+          sizes="(max-width: 1224px) 100vw, 60vw"
           priority
         />
       </div>
 
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 flex select-none items-center justify-center opacity-5"
-      >
-        <span className="text-[22rem] leading-none font-extrabold tracking-tighter text-white ">
-          TIPS
-        </span>
+      {/* watermark TIPS */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 flex select-none items-center justify-center opacity-5">
+        <span className="text-[22rem] leading-none font-extrabold tracking-tighter text-white">TIPS</span>
       </div>
 
       <div className="relative container mx-auto px-4">
         {/* Cabeçalho */}
         <div className="mb-8 flex items-center justify-between">
-          <h2 className="text-3xl md:text-4xl font-extrabold text-white">
-            Tips do Dia
-          </h2>
+          <h2 className="text-2xl md:text-5xl font-semibold text-white">Tips do Dia</h2>
 
           <Link
-            href={tips[0].href} // ✅ aponta para o mesmo caminho das tips (primeiro card)
+            href={tips[0].href}
             className="group inline-flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-white"
           >
             Ver Mais
-            <svg
-              className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              aria-hidden="true"
-            >
-              <path
-                fillRule="evenodd"
-                d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 111.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
-                clipRule="evenodd"
-              />
-            </svg>
+            <HiOutlinePlay className="h-5 w-5 text-orange-300 transition-transform group-hover:translate-x-0.5" />
           </Link>
         </div>
 
@@ -108,21 +88,21 @@ export default function Hero2() {
           {tips.map((tip) => (
             <article
               key={tip.id}
-              className="overflow-hidden rounded-2xl border border-gray-800 bg-gray-800/60 shadow-xl backdrop-blur-sm"
+              className="relative overflow-hidden rounded-xl border border-white/10 bg-[#3E3E3E] shadow-xl backdrop-blur-sm p-3"
             >
-              {/* Imagem + etiqueta */}
-              <div className="relative h-64 w-full">
+              {/* WRAPPER DA IMAGEM (dá a margem interna) */}
+              <div className="relative w-full h-56 md:h-60 rounded-lg overflow-hidden ring-1 ring-white/15 bg-black/5">
                 <Image
                   src={tip.image}
                   alt={tip.titulo}
                   fill
+                  sizes="(max-width:1024px) 100vw, 33vw"
                   className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 33vw"
                   priority
                 />
 
-                {/* Triângulo laranja + label azul */}
-                <div className="absolute top-4 left-0 flex items-center">
+                {/* Label sobreposta */}
+                <div className="absolute top-2 left-0 flex items-center">
                   <span
                     aria-hidden
                     className="w-0 h-0 border-y-[10px] border-y-transparent border-r-[12px] border-r-orange-500 -ml-2"
@@ -134,13 +114,14 @@ export default function Hero2() {
               </div>
 
               {/* Conteúdo */}
-              <div className="space-y-3 p-5">
-                <h3 className="text-lg font-semibold text-white">
+              <div className="space-y-3 p-3">
+                <h3 className="text-[15px] md:text-base font-semibold text-white leading-snug">
                   {tip.titulo}
                 </h3>
-                <p className="text-sm text-gray-400">{tip.data}</p>
 
-                <p className="text-sm leading-relaxed text-gray-300">
+                <p className="text-xs text-gray-300">{tip.data}</p>
+
+                <p className="text-sm leading-relaxed text-gray-200">
                   {tip.resumo}
                 </p>
 
@@ -148,8 +129,8 @@ export default function Hero2() {
 
                 <div className="pt-1">
                   <Link
-                    href={tip.href} // ✅ agora leva para /tips/[slug] de cada card
-                    className="inline-block rounded-md bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500/60"
+                    href={tip.href}
+                    className="inline-flex items-center gap-2  bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500/60"
                   >
                     Ver Mais
                   </Link>

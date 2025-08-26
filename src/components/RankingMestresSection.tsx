@@ -35,7 +35,7 @@ export default function RankingMestresSection() {
       <div className="container mx-auto grid gap-6 md:grid-cols-2">
 
         {/* ===== Quadrado 1: Ranking ===== */}
-        <div className="rounded-xl bg-[#3E3E3E] border border-gray-600 shadow-xl p-6 h-[450px] md:h-[450px] flex flex-col">
+        <div className=" bg-[#3E3E3E] p-6 h-[450px] md:h-[450px] flex flex-col">
           <h3 className="text-2xl font-extrabold text-white mb-3 mt-4">Ranking dos Torneios</h3>
 
           <div className="flex-1 grid content-center gap-3">
@@ -45,7 +45,7 @@ export default function RankingMestresSection() {
                 className="relative h-24 rounded-lg bg-gray-600/50 border border-gray-700 pl-[150px] pr-4 flex items-center justify-between overflow-hidden"
               >
                 {/* Faixa da esquerda (imagem + número) */}
-                <div className="absolute inset-y-0 left-0 w-[150px]">
+                <div className="absolute inset-y-0 left-0 w-[150px] h-30">
                   <div className="relative h-full w-full">
                     <Image
                       src={item.bannerSrc}
@@ -72,7 +72,7 @@ export default function RankingMestresSection() {
         </div>
 
         {/* ===== Quadrado 2: Mestres ===== */}
-        <div className="rounded-xl bg-[#3E3E3E] border border-gray-600 shadow-xl p-6 h-[450px] md:h-[450px] flex flex-col">
+        <div className="bg-[#3E3E3E] p-6 h-[450px] md:h-[450px] flex flex-col">
           <h3 className="text-2xl font-extrabold text-white mb-3 mt-4">Os Mestres das Tips</h3>
 
           <div className="flex-1 grid content-center gap-5">
