@@ -67,16 +67,17 @@ export default function Hero() {
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white">Últimas</h1>
           <Link
             href="/latest/futebol"
-            className="group inline-flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-white">
+            className="group inline-flex items-center gap-2 text-sm font-medium text-gray-300 hover:text-white"
+          >
             Ver Mais
             <HiOutlinePlay className="h-5 w-5 text-orange-300 transition-transform group-hover:translate-x-0.5" />
           </Link>
         </div>
 
-        {/* GRID: esquerda maior, direita normal */}
+        {/* GRID: esquerda maior, direita com dois cards */}
         <div className="grid grid-cols-1 gap-8 md:grid-cols-[1.12fr_1fr]">
           {/* CARD ESQUERDA (maior) */}
-          <article className="overflow-hidden ">
+          <article className="overflow-hidden">
             <div className="relative h-[220px] sm:h-[360px] md:h-[400px] lg:h-[320px]">
               <Image
                 src={news[0].image}
@@ -98,50 +99,52 @@ export default function Hero() {
               <p className="text-[13px] sm:text-sm text-gray-300">{news[0].excerpt}</p>
               <Link
                 href="/latest/futebol"
-                className="inline-block  bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700"
+                className="inline-block bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700"
               >
                 Ver mais
               </Link>
             </div>
           </article>
 
-          {/* COLUNA DIREITA: dois cards horizontais com imagens iguais */}
+          {/* COLUNA DIREITA: dois cards RESPONSIVOS */}
           <div className="grid grid-rows-2 gap-6">
             {[news[1], news[2]].map((item, idx) => (
-              <article
-                key={idx}
-                className="flex h-full overflow-hidden"
-              >
-                {/* imagem com medidas consistentes */}
-                <div className="relative h-[150px] sm:h-[260px] md:h-[270px] lg:h-[240px] w-[46%] min-w-[240px] max-w-[320px]">
-                  <Image
-                    src={item.image}
-                    alt={item.title}
-                    fill
-                    className="object-cover object-center"
-                    sizes="(max-width: 640px) 100vw, (max-width: 1280px) 320px, 360px"
-                    priority={idx === 0}
-                  />
-                </div>
-
-                <div className="flex flex-1 flex-col justify-between p-5">
-                  <div>
-                    <p className="text-[11px] sm:text-[12px] text-gray-400">
-                      <span className={`font-semibold ${item.tagColor}`}>{item.tag}</span> | {item.date}
-                    </p>
-                    <h3 className="mt-1 text-[15px] sm:text-base font-semibold text-white leading-snug">
-                      {item.title}
-                    </h3>
-                    <p className="mt-2 text-[13px] leading-relaxed text-gray-300">{item.excerpt}</p>
+              <article key={idx} className="overflow-hidden rounded-xl border border-gray-800/40">
+                {/* No mobile: coluna (imagem em cima, 100% largura)
+                    Em md+: linha (imagem à esquerda com largura fixa) */}
+                <div className="flex flex-col md:flex-row h-full">
+                  {/* Wrapper da imagem */}
+                  <div className="relative w-full md:w-[46%] lg:w-[42%] h-48 sm:h-56 md:h-[240px] lg:h-[260px]">
+                    <Image
+                      src={item.image}
+                      alt={item.title}
+                      fill
+                      className="object-cover object-center"
+                      sizes="(max-width: 768px) 100vw, 320px"
+                      priority={idx === 0}
+                    />
                   </div>
 
-                  <div className="pt-3">
-                    <Link
-                      href="/latest/futebol"
-                      className="inline-block bg-orange-600 px-4 py-2 text-xs sm:text-sm font-semibold text-white transition hover:bg-orange-700"
-                    >
-                      Ver mais
-                    </Link>
+                  {/* Conteúdo */}
+                  <div className="flex flex-1 flex-col justify-between p-5">
+                    <div>
+                      <p className="text-[11px] sm:text-[12px] text-gray-400">
+                        <span className={`font-semibold ${item.tagColor}`}>{item.tag}</span> | {item.date}
+                      </p>
+                      <h3 className="mt-1 text-[15px] sm:text-base font-semibold text-white leading-snug">
+                        {item.title}
+                      </h3>
+                      <p className="mt-2 text-[13px] leading-relaxed text-gray-300">{item.excerpt}</p>
+                    </div>
+
+                    <div className="pt-3">
+                      <Link
+                        href="/latest/futebol"
+                        className="inline-block bg-orange-600 px-4 py-2 text-xs sm:text-sm font-semibold text-white transition hover:bg-orange-700"
+                      >
+                        Ver mais
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </article>

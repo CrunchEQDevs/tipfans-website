@@ -1,7 +1,6 @@
-// src/components/LoginPanel.tsx
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
@@ -10,23 +9,23 @@ import { useRouter } from 'next/navigation';
 type LoginPanelProps = {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: 'login' | 'register'; // <- permite abrir direto em Registo
+  initialTab?: 'login' | 'register';
 };
 
 export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: LoginPanelProps) {
   const [tab, setTab] = useState<'login' | 'register'>(initialTab);
 
-  // --- LOGIN ---
-  const [email, setEmail] = useState('');
-  const [senha, setSenha] = useState('');
+  // login
+  const [emailLogin, setEmailLogin] = useState('');
+  const [senhaLogin, setSenhaLogin] = useState('');
   const [loadingLogin, setLoadingLogin] = useState(false);
   const [erroLogin, setErroLogin] = useState('');
 
-  // --- REGISTO ---
+  // register
   const [username, setUsername] = useState('');
-  const [regEmail, setRegEmail] = useState('');
-  const [regPass, setRegPass] = useState('');
-  const [regPass2, setRegPass2] = useState('');
+  const [emailReg, setEmailReg] = useState('');
+  const [senhaReg, setSenhaReg] = useState('');
+  const [senhaReg2, setSenhaReg2] = useState('');
   const [loadingReg, setLoadingReg] = useState(false);
   const [msgReg, setMsgReg] = useState('');
 
@@ -37,57 +36,85 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
     document.body.style.overflow = isOpen ? 'hidden' : '';
   }, [isOpen]);
 
-  // sincroniza a aba quando o parent quiser abrir direto em "register"
-  useEffect(() => setTab(initialTab), [initialTab, isOpen]);
+  useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab, isOpen]);
 
-  const activeClass = (t: 'login' | 'register') =>
-    t === tab ? 'text-white border-b-2 border-[#ED4F00]' : 'text-white/90 hover:text-white';
+  const redirectByRole = () => {
+    const role = (localStorage.getItem('userRole') ?? '').toLowerCase();
+    if (role === 'administrator') {
+      window.location.href = 'https://tipfans.com/wp/wp-admin/index.php';
+      return;
+    }
+    if (role === 'author') {
+      router.push('/autor');
+    } else {
+      router.push('/');
+    }
+  };
 
-  // -------- handlers ----------
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErroLogin('');
     setLoadingLogin(true);
 
-    const sucesso = await login(email, senha);
-    if (sucesso) {
-      const role = (localStorage.getItem('userRole') ?? '').toLowerCase();
-      if (role === 'administrator') {
-        window.location.href = 'https://tipfans.com/wp/wp-admin/index.php';
-      } else if (role === 'author') {
-        router.push('/autor');
-      } else {
-        router.push('/');
-      }
-      setEmail(''); setSenha(''); onClose();
-    } else {
-      setErroLogin('Usuário ou senha inválidos.');
-    }
+    const ok = await login(emailLogin, senhaLogin);
     setLoadingLogin(false);
+
+    if (!ok) {
+      setErroLogin('Usuário ou senha inválidos.');
+      return;
+    }
+
+    redirectByRole();
+
+    setEmailLogin('');
+    setSenhaLogin('');
+    onClose();
   };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setMsgReg('');
-    if (regPass !== regPass2) {
+
+    if (senhaReg !== senhaReg2) {
       setMsgReg('❌ As palavras-passe não coincidem.');
       return;
     }
-    setLoadingReg(true);
+
     try {
+      setLoadingReg(true);
       const res = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email: regEmail, password: regPass }),
+        body: JSON.stringify({ username, email: emailReg, password: senhaReg }),
       });
+
       const data = await res.json().catch(() => ({}));
 
-      if (res.ok) {
-        setMsgReg('✅ Conta criada. Pode iniciar sessão.');
-        // opcional: mudar automaticamente para a aba login
-        setTimeout(() => setTab('login'), 800);
-      } else {
+      if (!res.ok) {
         setMsgReg(`❌ ${data?.error || data?.message || 'Erro ao criar conta.'}`);
+      } else {
+        // Login automático imediato
+        setMsgReg('✅ Conta criada! Iniciando sessão...');
+        // Alguns backends aceitam username OU email; tentamos ambos.
+        let ok = await login(username, senhaReg);
+        if (!ok) ok = await login(emailReg, senhaReg);
+
+        if (ok) {
+          // sucesso: redireciona conforme o perfil
+          redirectByRole();
+          // limpa estado e fecha painel
+          setUsername('');
+          setEmailReg('');
+          setSenhaReg('');
+          setSenhaReg2('');
+          onClose();
+        } else {
+          // fallback: se não conseguiu logar auto
+          setMsgReg('✅ Conta criada! Faça login para continuar.');
+          setTab('login');
+        }
       }
     } catch {
       setMsgReg('❌ Erro de conexão com o servidor.');
@@ -100,160 +127,167 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* overlay */}
           <motion.div
-            className="fixed inset-0 z-40 bg-black/60"
+            className="fixed inset-0 bg-black/60 z-40"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={onClose}
           />
-
-          {/* drawer */}
-          <motion.aside
-            className="fixed right-0 top-0 z-50 h-full w-full sm:max-w-sm md:max-w-md overflow-y-auto"
+          <motion.div
+            className="fixed top-0 right-0 w-full sm:max-w-sm md:max-w-md h-full z-50"
             initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
-            transition={{ type: 'tween', duration: 0.25 }}
+            transition={{ type: 'tween' }}
           >
-            {/* topo com logo + X */}
-            <div className="flex items-center justify-between bg-black px-4 py-4">
-              <Image src="/Logo_TipFans.png" alt="TIPFANS" width={220} height={60} className="h-auto" priority />
-              <button onClick={onClose} aria-label="Fechar" className="text-white/90 hover:text-white text-xl">✕</button>
+            {/* Topo com logo e X */}
+            <div className="flex justify-between items-center bg-black px-5 py-4">
+              <Image src="/Logo_TipFans.png" alt="Logo" width={250} height={48} className="h-auto p-5" priority />
+              <button onClick={onClose} className="text-white/90 hover:text-white text-xl">✕</button>
             </div>
 
-            {/* área com bg do jogador + fade laranja */}
-            <div className="relative bg-[#1E1E1E]">
-              <div className="absolute inset-0">
-                <Image src="/Jog_login.png" alt="" fill className="object-cover opacity-20" priority />
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#ED4F00]/30 via-transparent to-transparent" />
-              </div>
+            {/* Fundo com imagem + overlay */}
+            <div className="relative h-[60%] bg-[#2b2b2b]">
+              <Image src="/Jog_login.png" alt="" fill className="object-cover opacity-25" priority />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/50" />
 
-              <div className="relative px-6 py-6">
-                {/* abas */}
-                <div className="mb-3 flex items-center gap-8">
-                  <button type="button" className={`text-lg font-semibold ${activeClass('register')}`} onClick={() => setTab('register')}>
+              {/* Conteúdo */}
+              <div className="relative px-6 pt-6">
+                {/* Tabs */}
+                <div className="mb-4 flex items-center gap-8 text-white/90">
+                  <button
+                    className={`text-lg font-semibold ${tab === 'register' ? 'text-white' : 'text-white/70'}`}
+                    onClick={() => setTab('register')}
+                    type="button"
+                  >
                     Registo
                   </button>
-                  <button type="button" className={`text-lg font-semibold ${activeClass('login')}`} onClick={() => setTab('login')}>
+                  <button
+                    className={`text-lg font-semibold ${tab === 'login' ? 'text-white' : 'text-white/70'}`}
+                    onClick={() => setTab('login')}
+                    type="button"
+                  >
                     Log In
                   </button>
                 </div>
-                {/* linha fina */}
-                <div className="mb-5 h-px w-full bg-white/20" />
 
-                {/* ====== REGISTO ====== */}
-                {tab === 'register' && (
-                  <form className="space-y-4 pb-10" onSubmit={handleRegister}>
+                {/* Forms */}
+                {tab === 'login' ? (
+                  <form onSubmit={handleLogin} className="space-y-4">
                     <div>
-                      <label className="mb-1 block text-sm text-white">Nome de utilizador</label>
+                      <label className="block text-sm text-white mb-1">Nome de utilizador ou E-mail</label>
                       <input
-                        type="text" value={username} onChange={(e) => setUsername(e.target.value)}
-                        className="w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-[#ED4F00]/50"
-                        placeholder=""
-                        autoComplete="username" required
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-sm text-white">E-mail</label>
-                      <input
-                        type="email" value={regEmail} onChange={(e) => setRegEmail(e.target.value)}
-                        className="w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-[#ED4F00]/50"
-                        autoComplete="email" required
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-sm text-white">Palavra-passe</label>
-                      <input
-                        type="password" value={regPass} onChange={(e) => setRegPass(e.target.value)}
-                        className="w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-[#ED4F00]/50"
-                        autoComplete="new-password" required
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-sm text-white">Confirmar palavra-passe</label>
-                      <input
-                        type="password" value={regPass2} onChange={(e) => setRegPass2(e.target.value)}
-                        className="w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-[#ED4F00]/50"
-                        autoComplete="new-password" required
-                      />
-                    </div>
-
-                    <button
-                      type="submit" disabled={loadingReg}
-                      className="mt-2 w-full rounded-md bg-[#ED4F00] py-2 font-semibold text-white transition hover:bg-orange-600 disabled:opacity-60"
-                    >
-                      {loadingReg ? 'A criar…' : 'Registar'}
-                    </button>
-
-                    {msgReg && (
-                      <p className={`text-sm ${msgReg.startsWith('✅') ? 'text-green-400' : 'text-red-400'}`}>{msgReg}</p>
-                    )}
-
-                    <div className="mt-4 space-y-1 text-sm">
-                      <p className="text-white">
-                        Já tem conta?{' '}
-                        <button type="button" onClick={() => setTab('login')} className="font-semibold text-[#ED4F00] hover:underline">
-                          Iniciar sessão
-                        </button>
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => { onClose(); router.push('/recuperar-senha'); }}
-                        className="text-left font-medium text-[#ED4F00] hover:underline"
-                      >
-                        Esqueceu-se da senha?
-                      </button>
-                    </div>
-                  </form>
-                )}
-
-                {/* ====== LOGIN ====== */}
-                {tab === 'login' && (
-                  <form className="space-y-4 mb-10" onSubmit={handleLogin}>
-                    <div>
-                      <label className="mb-1 block text-sm text-white">Nome de utilizador ou E-mail</label>
-                      <input
-                        type="text" value={email} onChange={(e) => setEmail(e.target.value)}
-                        className="w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-[#ED4F00]/50"
+                        type="text"
+                        value={emailLogin}
+                        onChange={(e) => setEmailLogin(e.target.value)}
+                        className="w-full px-3 py-2 rounded bg-white text-gray-800 placeholder:text-gray-500 focus:outline-none"
+                        placeholder="email ou usuário"
                         autoComplete="username"
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm text-white">Palavra-passe</label>
+                      <label className="block text-sm text-white mb-1">Palavra-passe</label>
                       <input
-                        type="password" value={senha} onChange={(e) => setSenha(e.target.value)}
-                        className="w-full rounded-md border border-white/15 bg-white/10 px-3 py-2 text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-[#ED4F00]/50"
+                        type="password"
+                        value={senhaLogin}
+                        onChange={(e) => setSenhaLogin(e.target.value)}
+                        className="w-full px-3 py-2 rounded bg-white text-gray-800 placeholder:text-gray-500 focus:outline-none"
+                        placeholder="••••••••"
                         autoComplete="current-password"
                       />
                     </div>
 
-                    {erroLogin && <p className="text-sm text-red-400">{erroLogin}</p>}
+                    {erroLogin && <p className="text-red-500 text-sm">{erroLogin}</p>}
 
                     <button
-                      type="submit" disabled={loadingLogin}
-                      className="mt-2 w-full rounded-md bg-[#ED4F00] py-2 font-semibold text-white transition hover:bg-orange-600 disabled:opacity-60"
+                      type="submit"
+                      disabled={loadingLogin}
+                      className="w-full bg-[#FF4500] hover:bg-orange-600 text-white py-2 rounded-md transition disabled:opacity-60"
                     >
                       {loadingLogin ? 'Entrando…' : 'Entrar'}
                     </button>
 
-                    <div className="mt-4 space-y-1 text-sm">
-                      <p className="text-white">
+                    <div className="mt-3 text-center">
+                      <p className="text-white text-sm">
                         Ainda não tem conta?{' '}
-                        <button type="button" onClick={() => setTab('register')} className="font-semibold text-[#ED4F00] hover:underline">
+                        <button
+                          type="button"
+                          onClick={() => setTab('register')}
+                          className="text-[#FF4500] hover:underline font-semibold"
+                        >
                           Registar
                         </button>
                       </p>
+                    </div>
+                  </form>
+                ) : (
+                  <form onSubmit={handleRegister} className="space-y-4">
+                    <div>
+                      <label className="block text-sm text-white mb-1">Nome de utilizador</label>
+                      <input
+                        type="text"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="w-full px-3 py-2 rounded bg-white text-gray-800 placeholder:text-gray-500 focus:outline-none"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-white mb-1">E-mail</label>
+                      <input
+                        type="email"
+                        value={emailReg}
+                        onChange={(e) => setEmailReg(e.target.value)}
+                        className="w-full px-3 py-2 rounded bg-white text-gray-800 placeholder:text-gray-500 focus:outline-none"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-white mb-1">Palavra-passe</label>
+                      <input
+                        type="password"
+                        value={senhaReg}
+                        onChange={(e) => setSenhaReg(e.target.value)}
+                        className="w-full px-3 py-2 rounded bg-white text-gray-800 placeholder:text-gray-500 focus:outline-none"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm text-white mb-1">Confirmar palavra-passe</label>
+                      <input
+                        type="password"
+                        value={senhaReg2}
+                        onChange={(e) => setSenhaReg2(e.target.value)}
+                        className="w-full px-3 py-2 rounded bg-white text-gray-800 placeholder:text-gray-500 focus:outline-none"
+                        required
+                      />
+                    </div>
+
+                    {msgReg && (
+                      <p className={`text-sm ${msgReg.startsWith('✅') ? 'text-green-400' : 'text-red-400'}`}>
+                        {msgReg}
+                      </p>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={loadingReg}
+                      className="w-full bg-[#FF4500] hover:bg-orange-600 text-white py-2 rounded-md transition disabled:opacity-60"
+                    >
+                      {loadingReg ? 'A criar…' : 'Registar'}
+                    </button>
+
+                    <div className="mt-3 text-center">
                       <button
                         type="button"
-                        onClick={() => { onClose(); router.push('/recuperar-senha'); }}
-                        className="text-left font-medium text-[#ED4F00] hover:underline"
+                        onClick={() => setTab('login')}
+                        className="text-white/80 hover:text-white text-sm"
                       >
-                        Esqueceu-se da senha?
+                        Já tem conta? Iniciar sessão
                       </button>
                     </div>
                   </form>
                 )}
               </div>
             </div>
-          </motion.aside>
+          </motion.div>
         </>
       )}
     </AnimatePresence>
