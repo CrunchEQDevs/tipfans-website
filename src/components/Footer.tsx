@@ -4,12 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
-import {
-  FaFacebookF,
-  FaInstagram,
-  FaYoutube,
-  FaDiscord,      // ✅ faltava este import
-} from 'react-icons/fa';
+import { FaFacebookF, FaInstagram, FaYoutube, FaDiscord } from 'react-icons/fa';
 import { FaXTwitter } from 'react-icons/fa6';
 
 export default function Footer() {
@@ -18,56 +13,56 @@ export default function Footer() {
 
   useEffect(() => setMounted(true), []);
 
-  const getLogo = () => {
-    if (!mounted) return '/Logo_TipFans.png';
-    return theme === 'dark' ? '/Logo_TipFans.png' : '/Logo_TipFans.png';
-  };
+  const getLogo = () => (!mounted ? '/Logo_TipFans.png' : '/Logo_TipFans.png');
 
   return (
     <footer className="relative z-10 overflow-hidden bg-[#151515] text-white py-10">
       {/* Conteúdo */}
-      <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-8 text-center md:text-left border-b border-[#1E10C7] w-full pb-6">
-        {/* Logo */}
-        <div className="flex flex-col items-center md:items-start gap-4">
+      <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-6 border-b border-[#1E10C7] pb-6">
+        {/* Logo (fica no lugar: esquerda no desktop, centro no mobile) */}
+        <div className="flex flex-col items-center md:items-start">
           {mounted && (
             <Image
               src={getLogo()}
               alt="Logo TipFans"
               width={160}
               height={100}
-              style={{ height: 'auto', transition: 'opacity 0.5s ease-in-out' }}
+              className="h-auto"
+              priority
             />
           )}
         </div>
 
-        {/* Navegação */}
-        <div className="flex flex-auto gap-8 text-sm font-medium">
-          <Link href="#" className="hover:underline text-white">LATEST</Link>
-          <Link href="#" className="hover:underline text-white">TIPS</Link>
-          <Link href="#" className="hover:underline text-white">TIPSTERS</Link>
-          <Link href="#" className="hover:underline text-white">CHALENGES</Link>
-          <Link href="#" className="hover:underline text-white">COMMUNITY</Link>
+        {/* Navegação (centralizada) */}
+        <nav className="flex flex-col items-center justify-center gap-3 text-sm font-medium">
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Link href="#" className="hover:underline">LATEST</Link>
+            <Link href="#" className="hover:underline">TIPS</Link>
+            <Link href="#" className="hover:underline">TIPSTERS</Link>
+            <Link href="#" className="hover:underline">CHALLENGES</Link>
+            <Link href="#" className="hover:underline">COMMUNITY</Link>
+          </div>
+        </nav>
 
-          {/* Redes sociais */}
-          <div className="items-center md:items-end gap-4 relative mt-10 right-80">
-            <h3 className="text-justify uppercase tracking-wide text-[10px]">Follow us</h3>
-            <div className="flex gap-4 text-xl mt-2">
-              <a aria-label="Discord" href="https://discord.com" target="_blank" rel="noreferrer">
-                <FaDiscord className="cursor-pointer hover:scale-110 transition  w-6 h-6 rounded-[3px]" />
-              </a>
-              <a aria-label="Facebook" href="https://facebook.com" target="_blank" rel="noreferrer">
-                <FaFacebookF className="cursor-pointer hover:scale-110 transition  w-6 h-6 rounded-[3px]" />
-              </a>
-              <a aria-label="Instagram" href="https://instagram.com" target="_blank" rel="noreferrer">
-                <FaInstagram className="cursor-pointer hover:scale-110 transition  w-6 h-6 rounded-[3px]" />
-              </a>
-              <a aria-label="X (Twitter)" href="https://twitter.com" target="_blank" rel="noreferrer">
-                <FaXTwitter className="cursor-pointer hover:scale-110 transition  w-6 h-6 rounded-[3px]" />
-              </a>
-              <a aria-label="YouTube" href="https://youtube.com" target="_blank" rel="noreferrer">
-                <FaYoutube className="cursor-pointer hover:scale-110 transition  w-6 h-6 rounded-[3px]" />
-              </a>
-            </div>
+        {/* Redes sociais (título + ícones centralizados) */}
+        <div className="flex flex-col items-center justify-center">
+          <h3 className="uppercase tracking-widest text-[10px] text-white/80">Follow us</h3>
+          <div className="mt-3 flex items-center justify-center gap-4 text-xl">
+            <a aria-label="Discord" href="https://discord.com" target="_blank" rel="noreferrer">
+              <FaDiscord className="hover:scale-110 transition" />
+            </a>
+            <a aria-label="Facebook" href="https://facebook.com" target="_blank" rel="noreferrer">
+              <FaFacebookF className="hover:scale-110 transition" />
+            </a>
+            <a aria-label="Instagram" href="https://instagram.com" target="_blank" rel="noreferrer">
+              <FaInstagram className="hover:scale-110 transition" />
+            </a>
+            <a aria-label="X (Twitter)" href="https://twitter.com" target="_blank" rel="noreferrer">
+              <FaXTwitter className="hover:scale-110 transition" />
+            </a>
+            <a aria-label="YouTube" href="https://youtube.com" target="_blank" rel="noreferrer">
+              <FaYoutube className="hover:scale-110 transition" />
+            </a>
           </div>
         </div>
       </div>
