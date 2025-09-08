@@ -48,7 +48,7 @@ const tips: TipCard[] = [
   },
 ];
 
-export default function Hero2() {
+export default function TipsDia() {
   return (
     <section className="relative w-full bg-[#1E1E1E] py-10 md:pt-10">
       {/* banner decorativo (não bloqueia cliques) */}
