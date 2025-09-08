@@ -114,7 +114,7 @@ export default function Navbar() {
         {/* TOP BAR */}
         <div className="bg-[#1E1E1E] px-4 py-4 flex justify-between items-center ">
           {/* Logo */}
-          <div className="flex items-center gap-4 ml-10 md:ml-64 mt-3 p-[11px]">
+          <div className="flex items-center gap-4 ml-10 md:ml-44 mt-3 p-[11px]">
             {mounted && (
               <Image
                 onClick={scrollToHome}

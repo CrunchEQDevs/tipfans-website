@@ -64,11 +64,11 @@ export default function Hero2() {
       />
 
       {/* Gradiente bottom → top (fade out) */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-96 bg-gradient-to-t from-black/90 to-transparent z-10 " />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-96 bg-gradient-to-t from-black/90 to-transparent z-10" />
 
       {/* Texto + CTA */}
-      <div className="absolute inset-0 flex items-end z-20 px-6 md:px-16 pb-20">
-        <div className="max-w-2xl p-6 rounded-lg">
+      <div className="absolute inset-0 flex items-end z-20 px-6 ml-28 md:px-16 pb-20 ">
+        <div className="max-w-2xl p-6 rounded-lg ">
           <h2 className="text-2xl md:text-4xl font-bold text-white">{slides[index].title}</h2>
           <p className="mt-2 text-white text-sm md:text-base">{slides[index].description}</p>
 
