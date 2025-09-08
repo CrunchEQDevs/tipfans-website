@@ -13,12 +13,12 @@ export default function PerfilPage() {
       <PerfilForm />
 
       {/* separador */}
-      <div className="h-px bg-gradient-to-r from-transparent via-white/90 to-transparent my-2" />
+      <div className="h-px bg-gradient-to-r from-transparent via-white/90 to-transparent my-2 mt-10" />
 
       <PasswordForm />
 
       {/* separador */}
-      <div className="h-px bg-gradient-to-r from-transparent via-white/90 to-transparent my-2" />
+      <div className="h-px bg-gradient-to-r from-transparent via-white/90 to-transparent my-2 mt-10 mb-10" />
 
       <DangerZone />
     </>

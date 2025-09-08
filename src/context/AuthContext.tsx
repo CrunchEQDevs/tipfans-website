@@ -10,8 +10,13 @@ import {
   ReactNode,
 } from 'react';
 
+// (opcional, mas recomendado) util que dispara eventos de auth
+// se não quiser criar o arquivo, troque por um inline:
+//   try { localStorage.setItem('tf_auth_event', String(Date.now())); window.dispatchEvent(new Event('tf-auth-changed')); } catch {}
+import { notifyAuthChanged } from '@/lib/auth-events';
+
 export type User = {
-  id: string | number;
+  id?: string | number;
   email: string;
   name: string;
   role?: string;
@@ -23,12 +28,16 @@ export type User = {
 type AuthContextType = {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
+  login: (identifier: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+function roleSlug(r?: string) {
+  return (r || '').toLowerCase();
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -38,17 +47,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const res = await fetch('/api/me', {
         method: 'GET',
-        credentials: 'include', // envia cookie httpOnly
+        credentials: 'include',
         cache: 'no-store',
       });
+
       if (!res.ok) {
         setUser(null);
         return;
       }
-      const data = await res.json();
-      const u: User | null = data?.user ?? null;
+
+      const data = (await res.json().catch(() => ({}))) as { user?: User };
+      const u = data?.user ?? null;
       setUser(u);
-      if (u?.role) localStorage.setItem('userRole', u.role);
+
+      if (u?.role) localStorage.setItem('userRole', roleSlug(u.role));
     } catch {
       setUser(null);
     }
@@ -63,30 +75,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchMe]);
 
   const login = useCallback(
-    async (email: string, password: string) => {
+    async (identifier: string, password: string) => {
       try {
         setLoading(true);
         const res = await fetch('/api/login', {
           method: 'POST',
-          credentials: 'include', // grava cookie tf_token
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ identifier, password }),
         });
 
-        type LoginResponse = { ok?: boolean; user?: User; error?: string; [k: string]: unknown };
-        const data = (await res.json().catch(() => ({}))) as LoginResponse;
+        const data = (await res.json().catch(() => ({}))) as { ok?: boolean; user?: User; error?: string };
 
-        if (!res.ok) {
-          console.error('❌ Login falhou:', data?.error || res.statusText);
+        if (!res.ok || !data?.ok) {
+          console.error('❌ Login falhou:', data?.error);
           return false;
         }
 
-        // Se o backend devolver { user }, usa; senão puxa do /api/me
-        if (data?.user) {
+        // Atualiza estado imediatamente com o user retornado
+        if (data.user) {
           setUser(data.user);
-          if (data.user.role) localStorage.setItem('userRole', data.user.role);
+          if (data.user.role) localStorage.setItem('userRole', roleSlug(data.user.role));
         } else {
           await fetchMe();
+        }
+
+        // Notifica app/abas que o auth mudou (evita precisar de F5)
+        try {
+          notifyAuthChanged();
+        } catch {
+          try {
+            localStorage.setItem('tf_auth_event', String(Date.now()));
+            window.dispatchEvent(new Event('tf-auth-changed'));
+          } catch {}
         }
 
         return true;
@@ -107,6 +128,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       localStorage.removeItem('userRole');
       setUser(null);
+
+      // Notifica mudança de auth
+      try {
+        notifyAuthChanged();
+      } catch {
+        try {
+          localStorage.setItem('tf_auth_event', String(Date.now()));
+          window.dispatchEvent(new Event('tf-auth-changed'));
+        } catch {}
+      }
+
       setLoading(false);
     }
   }, []);

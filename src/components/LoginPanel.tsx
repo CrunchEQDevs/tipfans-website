@@ -29,7 +29,7 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
   const [loadingReg, setLoadingReg] = useState(false);
   const [msgReg, setMsgReg] = useState('');
 
-  const { login } = useAuth();
+  const { login, refreshUser, user } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -40,17 +40,20 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
     setTab(initialTab);
   }, [initialTab, isOpen]);
 
-  const redirectByRole = () => {
-    const role = (localStorage.getItem('userRole') ?? '').toLowerCase();
+  const redirectByRole = (roleParam?: string) => {
+    const role =
+      (roleParam ?? user?.role ?? localStorage.getItem('userRole') ?? '').toLowerCase();
+
     if (role === 'administrator') {
       window.location.href = 'https://tipfans.com/wp/wp-admin/index.php';
       return;
     }
     if (role === 'author') {
-      router.push('/autor');
+      router.replace('/autor');
     } else {
-      router.push('/');
+      router.replace('/'); // padrão depois de login/registro
     }
+    router.refresh();
   };
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -66,6 +69,8 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
       return;
     }
 
+    // garante que o contexto esteja sincronizado antes do redirect
+    await refreshUser();
     redirectByRole();
 
     setEmailLogin('');
@@ -86,35 +91,37 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
       setLoadingReg(true);
       const res = await fetch('/api/register', {
         method: 'POST',
+        credentials: 'include', // garante Set-Cookie em qualquer cenário
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, email: emailReg, password: senhaReg }),
       });
 
       const data = await res.json().catch(() => ({}));
 
-      if (!res.ok) {
+      if (!res.ok || !data?.ok) {
         setMsgReg(`❌ ${data?.error || data?.message || 'Erro ao criar conta.'}`);
       } else {
-        // Login automático imediato
-        setMsgReg('✅ Conta criada! Iniciando sessão...');
-        // Alguns backends aceitam username OU email; tentamos ambos.
-        let ok = await login(username, senhaReg);
-        if (!ok) ok = await login(emailReg, senhaReg);
+        setMsgReg('✅ Conta criada! A entrar…');
 
-        if (ok) {
-          // sucesso: redireciona conforme o perfil
-          redirectByRole();
-          // limpa estado e fecha painel
-          setUsername('');
-          setEmailReg('');
-          setSenhaReg('');
-          setSenhaReg2('');
-          onClose();
-        } else {
-          // fallback: se não conseguiu logar auto
-          setMsgReg('✅ Conta criada! Faça login para continuar.');
-          setTab('login');
-        }
+        // AVISO outras abas/mesma aba (opcional, mas ajuda)
+        try {
+          localStorage.setItem('tf_auth_event', String(Date.now()));
+          window.dispatchEvent(new Event('tf-auth-changed'));
+        } catch {}
+
+        // sincroniza estado local com o cookie recém-definido
+        await refreshUser();
+
+        // usa role da resposta (mais confiável) ou cai no contexto/LS
+        const roleFromApi: string | undefined = data?.user?.role;
+        redirectByRole(roleFromApi);
+
+        // limpa e fecha
+        setUsername('');
+        setEmailReg('');
+        setSenhaReg('');
+        setSenhaReg2('');
+        onClose();
       }
     } catch {
       setMsgReg('❌ Erro de conexão com o servidor.');

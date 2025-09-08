@@ -2,231 +2,285 @@
 import { NextResponse } from 'next/server';
 import { SignJWT } from 'jose';
 import { cookies } from 'next/headers';
-import { connectDB } from '@/lib/mongo';
-import UserExtra from '@/models/UserExtra';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+/* =========================
+   Ambiente
+   - Localhost: CROSS_SITE_COOKIES=0 (ou ausente)
+   - Produção cross-site: CROSS_SITE_COOKIES=1
+   - JWT_SECRET definido
+   - WP_URL/ WP_BASE_URL (sem barra final)
+   ========================= */
 
 const COOKIE_NAME = 'tf_token';
 
-type WpTokenResp = {
-  token?: string;
-  user_email?: string;
-  user_display_name?: string;
-  message?: string;
-  [k: string]: unknown;
+const WP = (process.env.WP_URL || process.env.WP_BASE_URL || '').replace(/\/$/, '');
+const APP_USER = process.env.WP_APP_USER || '';
+// limpa aspas e espaços do Application Password (WP mostra com espaços)
+const APP_PASS_RAW = process.env.WP_APP_PASS || '';
+const APP_PASS = APP_PASS_RAW.replace(/^"(.*)"$/, '$1').replace(/\s+/g, '');
+const JWT_SECRET = process.env.JWT_SECRET || '';
+const CROSS = process.env.CROSS_SITE_COOKIES === '1';
+
+const safe = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+const pickName = (obj: any, fallback: string) => {
+  const composed = [safe(obj?.first_name), safe(obj?.last_name)].filter(Boolean).join(' ').trim();
+  return (
+    safe(obj?.name) ||
+    composed ||
+    safe(obj?.nickname) ||
+    safe(obj?.username) ||
+    safe(obj?.slug) ||
+    fallback
+  );
 };
 
-type WpUser = {
-  id: number;
-  email?: string;
-  name?: string;
-  username?: string;
-  roles?: string[];
-  avatar_urls?: Record<string, string>;
-  [k: string]: unknown;
-};
-
-type WpUserLite = {
-  id: number;
-  email?: string;
-  slug?: string;      // costuma ser o login
-  username?: string;  // alguns setups expõem
-  roles?: string[];
-};
-
-type ExtrasDoc =
-  | {
-      avatarUrl?: string;
-      memberSince?: string;
-      stats?: Record<string, unknown>;
-    }
-  | null;
-
-function isProd() {
-  return process.env.NODE_ENV === 'production';
+/* ---------- Helpers (via Application Password) ---------- */
+function authHeaderBasic(): string | null {
+  if (!APP_USER || !APP_PASS) return null;
+  return 'Basic ' + Buffer.from(`${APP_USER}:${APP_PASS}`).toString('base64');
 }
 
-// não é Hook; só lê env
-function isCrossSiteEnv() {
-  // Set CROSS_SITE_COOKIES=1 se o front e a API estiverem em domínios diferentes
-  return process.env.CROSS_SITE_COOKIES === '1';
+async function getUserByIdViaApp(id: number) {
+  const basic = authHeaderBasic(); if (!basic || !WP || !id) return null;
+  const res = await fetch(`${WP}/wp-json/wp/v2/users/${id}?context=edit`, {
+    headers: { Authorization: basic, Accept: 'application/json' },
+    cache: 'no-store',
+  });
+  if (!res.ok) return null;
+  return await res.json().catch(() => null);
 }
 
-function isNonEmptyString(v: unknown): v is string {
-  return typeof v === 'string' && v.trim().length > 0;
+async function getUserByEmailViaApp(email: string) {
+  const basic = authHeaderBasic(); if (!basic || !WP) return null;
+
+  const url = new URL(`${WP}/wp-json/wp/v2/users`);
+  url.searchParams.set('context', 'edit');
+  url.searchParams.set('per_page', '100');
+  url.searchParams.set('search', email);
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: basic, Accept: 'application/json' },
+    cache: 'no-store',
+  });
+  if (!res.ok) return null;
+
+  const arr = await res.json().catch(() => null);
+  if (!Array.isArray(arr)) return null;
+
+  return arr.find((x: any) => String(x?.email || '').toLowerCase() === email.toLowerCase()) || null;
 }
 
-function pickPrimaryRole(roles: string[] | undefined): string {
-  const list = (roles ?? []).map((r) => String(r).toLowerCase());
-  const order = ['administrator', 'editor', 'author', 'contributor', 'subscriber'];
-  for (const r of order) if (list.includes(r)) return r;
-  return list[0] ?? 'subscriber';
+/* ---------- WP JWT ---------- */
+async function wpToken(username: string, password: string) {
+  const res = await fetch(`${WP}/wp-json/jwt-auth/v1/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    cache: 'no-store',
+    body: JSON.stringify({ username, password }),
+  });
+  const json = await res.json().catch(() => ({} as any));
+  return { ok: res.ok && !!json?.token, status: res.status, json };
 }
 
+function json401(body: any, extraHeaders?: Record<string, string>) {
+  return NextResponse.json(body, {
+    status: 401,
+    headers: { 'Cache-Control': 'no-store', ...(extraHeaders || {}) },
+  });
+}
+
+/* ---------- Handler ---------- */
 export async function POST(req: Request) {
   try {
-    // ===== 0) ENV =====
-    const wpUrl = process.env.WP_URL;
-    const jwtSecret = process.env.JWT_SECRET;
-    const wpAdminToken = process.env.WP_ADMIN_TOKEN || null;
-
-    if (!wpUrl) return NextResponse.json({ error: 'WP_URL ausente no .env' }, { status: 500 });
-    if (!jwtSecret) return NextResponse.json({ error: 'JWT_SECRET ausente no .env' }, { status: 500 });
-
-    // ===== 1) Entrada =====
-    const body = await req.json().catch(() => ({} as Record<string, unknown>));
-    const emailOrLogin = isNonEmptyString((body as Record<string, unknown>).email)
-      ? String((body as Record<string, unknown>).email).trim()
-      : '';
-    const password = isNonEmptyString((body as Record<string, unknown>).password)
-      ? String((body as Record<string, unknown>).password)
-      : '';
-    if (!emailOrLogin || !password) {
-      return NextResponse.json({ error: 'Email e senha obrigatórios' }, { status: 400 });
+    if (!WP) {
+      return NextResponse.json(
+        { error: 'WP_URL/WP_BASE_URL não configurado' },
+        { status: 500, headers: { 'Cache-Control': 'no-store' } }
+      );
+    }
+    if (!JWT_SECRET) {
+      return NextResponse.json(
+        { error: 'JWT_SECRET não configurado' },
+        { status: 500, headers: { 'Cache-Control': 'no-store' } }
+      );
     }
 
-    // ===== 2) Login WP =====
-    const tokenUrl = `${wpUrl.replace(/\/$/, '')}/wp-json/jwt-auth/v1/token`;
-
-    // 2a. tenta direto com o que o utilizador digitou (pode ser email ou username)
-    let loginRes = await fetch(tokenUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      cache: 'no-store',
-      body: JSON.stringify({ username: emailOrLogin, password }),
-    });
-    let loginData = (await loginRes.json().catch(() => ({}))) as WpTokenResp;
-
-    // 2b. se falhar e o input parecer email, tenta resolver o username via admin e refazer
-    if ((!loginRes.ok || !loginData.token) && emailOrLogin.includes('@') && wpAdminToken) {
-      try {
-        const usersUrl = new URL(`${wpUrl.replace(/\/$/, '')}/wp-json/wp/v2/users`);
-        usersUrl.searchParams.set('context', 'edit');
-        usersUrl.searchParams.set('per_page', '100');
-        usersUrl.searchParams.set('search', emailOrLogin);
-
-        const ures = await fetch(usersUrl.toString(), {
-          headers: { Authorization: `Bearer ${wpAdminToken}` },
-          cache: 'no-store',
-        });
-
-        if (ures.ok) {
-          const list = (await ures.json().catch(() => [])) as WpUserLite[];
-          const found = Array.isArray(list)
-            ? list.find(
-                (u) => isNonEmptyString(u?.email) && u.email!.toLowerCase() === emailOrLogin.toLowerCase()
-              )
-            : undefined;
-
-          const wpLogin =
-            (found?.slug && String(found.slug)) ||
-            (found?.username && String(found.username)) ||
-            '';
-
-          if (isNonEmptyString(wpLogin)) {
-            // tenta novamente com o username real do WP
-            loginRes = await fetch(tokenUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              cache: 'no-store',
-              body: JSON.stringify({ username: wpLogin, password }),
-            });
-            loginData = (await loginRes.json().catch(() => ({}))) as WpTokenResp;
-          }
-        }
-      } catch {
-        // mantém o erro original
-      }
-    }
-
-    if (!loginRes.ok || !loginData.token) {
-      const msg = isNonEmptyString(loginData.message) ? loginData.message : 'Falha no login WP';
-      return NextResponse.json({ error: msg }, { status: 401 });
-    }
-
-    // ===== 3) Perfil WP =====
-    const meRes = await fetch(`${wpUrl.replace(/\/$/, '')}/wp-json/wp/v2/users/me`, {
-      headers: { Authorization: `Bearer ${loginData.token}` },
-      cache: 'no-store',
-    });
-    if (!meRes.ok) return NextResponse.json({ error: 'Falha ao buscar perfil WP' }, { status: 502 });
-    const wpUser = (await meRes.json()) as WpUser;
-
-    // ===== 4) Extras Mongo (opcional) =====
-    await connectDB().catch(() => null);
-    const lookupEmail = wpUser.email || loginData.user_email || emailOrLogin;
-    const extrasRaw = await UserExtra.findOne({ email: lookupEmail }).lean().catch(() => null);
-    const extras = (extrasRaw ?? null) as ExtrasDoc;
-
-    // ===== 5) Payload =====
-    const finalEmail = wpUser.email || loginData.user_email || emailOrLogin;
-    const finalName =
-      wpUser.name || wpUser.username || loginData.user_display_name || finalEmail.split('@')[0];
-
-    // Papel: tenta dos roles do /me; se vazio, tenta buscar via admin por email; fallback 'subscriber'
-    let primaryRole = pickPrimaryRole(wpUser.roles);
-    if ((!primaryRole || primaryRole === 'subscriber') && wpAdminToken && isNonEmptyString(finalEmail)) {
-      try {
-        const usersUrl2 = new URL(`${wpUrl.replace(/\/$/, '')}/wp-json/wp/v2/users`);
-        usersUrl2.searchParams.set('context', 'edit');
-        usersUrl2.searchParams.set('per_page', '100');
-        usersUrl2.searchParams.set('search', finalEmail);
-        const ures2 = await fetch(usersUrl2.toString(), {
-          headers: { Authorization: `Bearer ${wpAdminToken}` },
-          cache: 'no-store',
-        });
-        if (ures2.ok) {
-          const list2 = (await ures2.json().catch(() => [])) as WpUserLite[];
-          const found2 = Array.isArray(list2)
-            ? list2.find(
-                (u) => isNonEmptyString(u?.email) && u.email!.toLowerCase() === finalEmail.toLowerCase()
-              )
-            : undefined;
-          if (found2?.roles?.length) {
-            primaryRole = pickPrimaryRole(found2.roles);
-          }
-        }
-      } catch {
-        // ignora; fica o já determinado
-      }
-    }
-    if (!primaryRole) primaryRole = 'subscriber';
-
-    const wpAvatar =
-      (wpUser.avatar_urls && (wpUser.avatar_urls['96'] || wpUser.avatar_urls['48'])) || '';
-
-    const payload = {
-      email: finalEmail,
-      name: finalName,
-      role: String(primaryRole).toLowerCase(), // slug em inglês, minúsculo
-      avatarUrl: (extras?.avatarUrl || wpAvatar || '') as string,
-      memberSince: (extras?.memberSince || new Date().toISOString()) as string,
-      stats: (extras?.stats || {}) as Record<string, unknown>,
+    const body = (await req.json().catch(() => ({}))) as {
+      username?: string; email?: string; identifier?: string; password?: string;
     };
 
-    // ===== 6) Assina o TEU JWT =====
-    const token = await new SignJWT(payload)
+    const identifier = safe(body.username || body.email || body.identifier || '');
+    const password = safe(body.password || '');
+    if (!identifier || !password) {
+      return json401({ error: 'Credenciais obrigatórias' }, { 'x-login-hint': 'missing-credentials' });
+    }
+
+    const attempts: string[] = [];
+    let lastWpStatus = 0;
+
+    // 1) tenta o que o user digitou (username OU e-mail)
+    let loginName = identifier;
+    let tok = await wpToken(loginName, password);
+    lastWpStatus = tok.status;
+    if (tok.ok) attempts.push(`direct:${loginName}`);
+
+    // 2) se falhou e é e-mail, resolve username por APP
+    if (!tok.ok && identifier.includes('@')) {
+      const byEmail = await getUserByEmailViaApp(identifier);
+      const mapped = safe(byEmail?.slug || byEmail?.username || byEmail?.name || byEmail?.user_login);
+      if (mapped) {
+        loginName = mapped;
+        tok = await wpToken(loginName, password);
+        lastWpStatus = tok.status;
+        if (tok.ok) attempts.push(`mapped:${loginName}`);
+      }
+    }
+
+    // 3) fallback: parte local do e-mail como username
+    if (!tok.ok && identifier.includes('@')) {
+      const localPart = identifier.split('@')[0];
+      if (localPart) {
+        loginName = localPart;
+        tok = await wpToken(loginName, password);
+        lastWpStatus = tok.status;
+        if (tok.ok) attempts.push(`local:${loginName}`);
+      }
+    }
+
+    // 4) último: tenta e-mail de novo
+    if (!tok.ok && identifier.includes('@')) {
+      loginName = identifier;
+      tok = await wpToken(loginName, password);
+      lastWpStatus = tok.status;
+      if (tok.ok) attempts.push(`email-fallback:${loginName}`);
+    }
+
+    if (!tok.ok) {
+      const msg = tok.json?.message || 'Usuário ou senha inválidos';
+      return json401(
+        { error: msg },
+        {
+          'x-login-hint': attempts.join('>') || 'failed',
+          'x-wp-token-status': String(lastWpStatus),
+          'x-wp-code': String(tok.json?.code || ''),
+        }
+      );
+    }
+
+    // Token do WP
+    const wpTokenStr = safe(tok.json?.token || '');
+    const wpUserId   = Number(tok.json?.user_id || 0);
+    const tEmail     = safe(tok.json?.user_email || '');
+    const tDispName  = safe(tok.json?.user_display_name || '');
+    const tNiceName  = safe(tok.json?.user_nicename || '');
+    const tLogin     = safe(tok.json?.user_login || '');
+
+    // Base inicial do payload
+    let email = tEmail || (identifier.includes('@') ? identifier : '');
+    let name  = tDispName || tNiceName || tLogin || (identifier.includes('@') ? identifier.split('@')[0] : identifier);
+    let avatarUrl = '';
+    let role = 'subscriber';
+    let memberSince = new Date().toISOString();
+    let finalUserId = wpUserId || undefined;
+
+    // === Enriquecimento prioritário via Application Password (o mais confiável) ===
+    let userByApp: any = null;
+    if (wpUserId) {
+      userByApp = await getUserByIdViaApp(wpUserId);
+    }
+    if (!userByApp && email) {
+      userByApp = await getUserByEmailViaApp(email);
+    }
+    if (userByApp) {
+      email = safe(userByApp?.email) || email;
+      name = pickName(userByApp, name);
+      avatarUrl = safe(userByApp?.avatar_urls?.['96']) || safe(userByApp?.avatar_urls?.['48']) || avatarUrl;
+      role = (Array.isArray(userByApp?.roles) && userByApp.roles.length)
+        ? String(userByApp.roles[0]).toLowerCase()
+        : role;
+      memberSince = (userByApp?.registered_date ? new Date(userByApp.registered_date).toISOString() : memberSince);
+      finalUserId = Number(userByApp?.id || finalUserId) || undefined;
+    } else {
+      // === Opcional: tentar /users/me com o JWT do próprio usuário, mas só se o ID bater ===
+      try {
+        const meRes = await fetch(`${WP}/wp-json/wp/v2/users/me`, {
+          headers: { Authorization: `Bearer ${wpTokenStr}` },
+          cache: 'no-store',
+        });
+        const meJson = await meRes.json().catch(() => ({}));
+        const idMatches = wpUserId ? Number(meJson?.id || 0) === wpUserId : false; // se não tem user_id, NÃO confiar
+        if (meRes.ok && idMatches) {
+          email = safe(meJson?.email) || email;
+          name = pickName(meJson, name);
+          avatarUrl = safe(meJson?.avatar_urls?.['96']) || safe(meJson?.avatar_urls?.['48']) || avatarUrl;
+          role = (Array.isArray(meJson?.roles) && meJson.roles.length)
+            ? String(meJson.roles[0]).toLowerCase()
+            : role;
+          memberSince = (meJson?.registered_date ? new Date(meJson.registered_date).toISOString() : memberSince);
+          finalUserId = Number(meJson?.id || finalUserId) || undefined;
+        }
+      } catch { /* ignora */ }
+    }
+
+    // Payload final do cookie da app
+    const payload = {
+      email,
+      name,
+      role,
+      avatarUrl,
+      memberSince,
+      stats: {} as Record<string, unknown>,
+      wpUserId: finalUserId,
+    };
+
+    const appToken = await new SignJWT(payload)
       .setProtectedHeader({ alg: 'HS256' })
-      .setSubject(finalEmail)
+      .setSubject(payload.email || email || '')
       .setIssuedAt()
       .setExpirationTime('7d')
-      .sign(new TextEncoder().encode(jwtSecret));
+      .sign(new TextEncoder().encode(JWT_SECRET));
 
-    // ===== 7) Cookie httpOnly =====
-    const cookieStore = await cookies();
-    const cross = isCrossSiteEnv();
-    await cookieStore.set({
+    const ck = await cookies();
+
+    // Cookies: dinâmicos conforme protocolo
+    const proto = req.headers.get('x-forwarded-proto') || new URL(req.url).protocol.replace(':', '');
+    const isHttps = proto === 'https';
+    const sameSite = CROSS ? 'none' : 'lax';
+    const secure   = CROSS ? true : isHttps; // em localhost (http) => false
+
+    await ck.set({
       name: COOKIE_NAME,
-      value: token,
+      value: appToken,
       httpOnly: true,
       path: '/',
-      maxAge: 60 * 60 * 24 * 7, // 7 dias
-      sameSite: cross ? 'none' : 'lax',
-      secure: cross ? true : isProd(),
+      maxAge: 60 * 60 * 24 * 7,
+      sameSite,
+      secure,
     });
 
-    return NextResponse.json({ ok: true, user: payload });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: 'Erro interno', details: msg }, { status: 500 });
+    await ck.set({
+      name: 'wp_jwt',
+      value: wpTokenStr,
+      httpOnly: true,
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+      sameSite,
+      secure,
+    });
+
+    return NextResponse.json(
+      { ok: true, user: payload },
+      { headers: { 'Cache-Control': 'no-store', 'x-login-hint': attempts.join('>') || 'ok' } }
+    );
+
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json(
+      { error: 'Erro interno', details: msg },
+      { status: 500, headers: { 'Cache-Control': 'no-store', 'x-login-hint': 'exception' } }
+    );
   }
 }

@@ -14,7 +14,7 @@ export default function LoginPageClient({
     <LoginPanel
       isOpen
       initialTab={initialTab}
-      onClose={() => router.push('/')}
+      onClose={() => router.replace('/')}
     />
   );
 }
