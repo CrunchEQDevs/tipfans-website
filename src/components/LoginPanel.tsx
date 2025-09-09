@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Image from 'next/image';
 import { useAuth } from '@/context/AuthContext';
@@ -41,8 +41,7 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
   }, [initialTab, isOpen]);
 
   const redirectByRole = (roleParam?: string) => {
-    const role =
-      (roleParam ?? user?.role ?? localStorage.getItem('userRole') ?? '').toLowerCase();
+    const role = (roleParam ?? user?.role ?? localStorage.getItem('userRole') ?? '').toLowerCase();
 
     if (role === 'administrator') {
       window.location.href = 'https://tipfans.com/wp/wp-admin/index.php';
@@ -51,7 +50,7 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
     if (role === 'author') {
       router.replace('/autor');
     } else {
-      router.replace('/'); // padrão depois de login/registro
+      router.replace('/');
     }
     router.refresh();
   };
@@ -61,7 +60,7 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
     setErroLogin('');
     setLoadingLogin(true);
 
-    const ok = await login(emailLogin, senhaLogin);
+    const ok = await login(emailLogin.trim(), senhaLogin);
     setLoadingLogin(false);
 
     if (!ok) {
@@ -69,7 +68,6 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
       return;
     }
 
-    // garante que o contexto esteja sincronizado antes do redirect
     await refreshUser();
     redirectByRole();
 
@@ -77,6 +75,12 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
     setSenhaLogin('');
     onClose();
   };
+
+  const canSubmitRegister = useMemo(() => {
+    if (!username.trim() || !emailReg.trim() || !senhaReg || !senhaReg2) return false;
+    if (senhaReg !== senhaReg2) return false;
+    return true;
+  }, [username, emailReg, senhaReg, senhaReg2]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,38 +95,40 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
       setLoadingReg(true);
       const res = await fetch('/api/register', {
         method: 'POST',
-        credentials: 'include', // garante Set-Cookie em qualquer cenário
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email: emailReg, password: senhaReg }),
+        cache: 'no-store',
+        body: JSON.stringify({
+          username: username.trim(),
+          email: emailReg.trim(),
+          password: senhaReg,
+        }),
       });
 
-      const data = await res.json().catch(() => ({}));
+      const data = await res.json().catch(() => ({} as any));
 
       if (!res.ok || !data?.ok) {
-        setMsgReg(`❌ ${data?.error || data?.message || 'Erro ao criar conta.'}`);
-      } else {
-        setMsgReg('✅ Conta criada! A entrar…');
-
-        // AVISO outras abas/mesma aba (opcional, mas ajuda)
-        try {
-          localStorage.setItem('tf_auth_event', String(Date.now()));
-          window.dispatchEvent(new Event('tf-auth-changed'));
-        } catch {}
-
-        // sincroniza estado local com o cookie recém-definido
-        await refreshUser();
-
-        // usa role da resposta (mais confiável) ou cai no contexto/LS
-        const roleFromApi: string | undefined = data?.user?.role;
-        redirectByRole(roleFromApi);
-
-        // limpa e fecha
-        setUsername('');
-        setEmailReg('');
-        setSenhaReg('');
-        setSenhaReg2('');
-        onClose();
+        const code = data?.code ? ` (${data.code})` : '';
+        setMsgReg(`❌ ${data?.error || data?.message || 'Erro ao criar conta.'}${code}`);
+        return;
       }
+
+      setMsgReg('✅ Conta criada! A entrar…');
+
+      try {
+        localStorage.setItem('tf_auth_event', String(Date.now()));
+        window.dispatchEvent(new Event('tf-auth-changed'));
+      } catch {}
+
+      await refreshUser();
+      const roleFromApi: string | undefined = data?.user?.role;
+      redirectByRole(roleFromApi);
+
+      setUsername('');
+      setEmailReg('');
+      setSenhaReg('');
+      setSenhaReg2('');
+      onClose();
     } catch {
       setMsgReg('❌ Erro de conexão com o servidor.');
     } finally {
@@ -136,21 +142,25 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
         <>
           <motion.div
             className="fixed inset-0 bg-black/60 z-40"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
             onClick={onClose}
           />
           <motion.div
             className="fixed top-0 right-0 w-full sm:max-w-sm md:max-w-md h-full z-50"
-            initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
             transition={{ type: 'tween' }}
           >
-            {/* Topo com logo e X */}
+            {/* Topo */}
             <div className="flex justify-between items-center bg-black px-5 py-4">
               <Image src="/Logo_TipFans.png" alt="Logo" width={250} height={48} className="h-auto p-5" priority />
-              <button onClick={onClose} className="text-white/90 hover:text-white text-xl">✕</button>
+              <button onClick={onClose} className="text-white/90 hover:text-white text-xl" aria-label="Fechar">✕</button>
             </div>
 
-            {/* Fundo com imagem + overlay */}
+            {/* Fundo */}
             <div className="relative h-[60%] bg-[#2b2b2b]">
               <Image src="/Jog_login.png" alt="" fill className="object-cover opacity-25" priority />
               <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/50" />
@@ -177,7 +187,7 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
 
                 {/* Forms */}
                 {tab === 'login' ? (
-                  <form onSubmit={handleLogin} className="space-y-4">
+                  <form onSubmit={handleLogin} className="space-y-4" noValidate>
                     <div>
                       <label className="block text-sm text-white mb-1">Nome de utilizador ou E-mail</label>
                       <input
@@ -187,6 +197,7 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
                         className="w-full px-3 py-2 rounded bg-white text-gray-800 placeholder:text-gray-500 focus:outline-none"
                         placeholder="email ou usuário"
                         autoComplete="username"
+                        required
                       />
                     </div>
                     <div>
@@ -198,6 +209,7 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
                         className="w-full px-3 py-2 rounded bg-white text-gray-800 placeholder:text-gray-500 focus:outline-none"
                         placeholder="••••••••"
                         autoComplete="current-password"
+                        required
                       />
                     </div>
 
@@ -205,7 +217,7 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
 
                     <button
                       type="submit"
-                      disabled={loadingLogin}
+                      disabled={loadingLogin || !emailLogin.trim() || !senhaLogin}
                       className="w-full bg-[#FF4500] hover:bg-orange-600 text-white py-2 rounded-md transition disabled:opacity-60"
                     >
                       {loadingLogin ? 'Entrando…' : 'Entrar'}
@@ -225,7 +237,7 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
                     </div>
                   </form>
                 ) : (
-                  <form onSubmit={handleRegister} className="space-y-4">
+                  <form onSubmit={handleRegister} className="space-y-4" noValidate>
                     <div>
                       <label className="block text-sm text-white mb-1">Nome de utilizador</label>
                       <input
@@ -275,7 +287,7 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
 
                     <button
                       type="submit"
-                      disabled={loadingReg}
+                      disabled={loadingReg || !canSubmitRegister}
                       className="w-full bg-[#FF4500] hover:bg-orange-600 text-white py-2 rounded-md transition disabled:opacity-60"
                     >
                       {loadingReg ? 'A criar…' : 'Registar'}
