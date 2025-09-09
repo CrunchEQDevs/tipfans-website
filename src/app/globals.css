@@ -2,67 +2,66 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ===== Overrides / customizações ===== */
 @layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem
+  html, body {
+    margin: 0;
+    padding: 0;
+    background-color: hsl(var(--background));
   }
-  .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%
+
+  :root {
+    --nav-h: 120px;
+    --nav-h-sm: 140px;
+    --nav-h-md: 170px;
+    --nav-h-lg: 186px;
+  }
+
+  @supports (padding: env(safe-area-inset-top)) {
+    body {
+      background-clip: padding-box;
+    }
   }
 }
 
-@layer base {
-  * {
-    @apply border-border;
+@layer utilities {
+  .nav-spacer {
+    height: var(--nav-h);
+    padding-top: env(safe-area-inset-top);
   }
-  body {
-    @apply bg-background text-foreground;
+  @media (min-width: 640px) { .nav-spacer { height: var(--nav-h-sm); } }
+  @media (min-width: 768px) { .nav-spacer { height: var(--nav-h-md); } }
+  @media (min-width: 1024px) { .nav-spacer { height: var(--nav-h-lg); } }
+}
+@layer base {
+  html, body {
+    /* corta qualquer transbordo horizontal (Safari iOS) */
+    overflow-x: hidden;
+    /* garante fundo sólido, não deixe transparente */
+    background-color: hsl(var(--background));
+  }
+
+  /* arredondamento/subpixel: garanta box-sizing */
+  *, *::before, *::after { box-sizing: border-box; }
+
+  /* mídias nunca estouram o container */
+  img, video, canvas, svg { max-width: 100%; height: auto; }
+
+  /* iOS safe-areas laterais (modo paisagem ou gestos) */
+  @supports (padding: env(safe-area-inset-left)) {
+    body {
+      padding-left: max(0px, env(safe-area-inset-left));
+      padding-right: max(0px, env(safe-area-inset-right));
+    }
+  }
+}
+
+/* util para seções de herói full-bleed sem “faixa” */
+@layer utilities {
+  .anti-bleed {
+    overflow-x: clip;           /* mais agressivo que hidden */
+    isolation: isolate;         /* impede efeitos externos vazarem */
+    backface-visibility: hidden;
+    transform: translateZ(0);   /* força camada GPU (Safari) */
   }
 }

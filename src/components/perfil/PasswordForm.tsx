@@ -25,7 +25,6 @@ export default function PasswordForm() {
       alert('Palavra-passe atualizada.');
       setPwd({ current: '', next: '', confirm: '' });
     } catch (err) {
-      // ✅ sem `any`, usa `unknown`
       const message = err instanceof Error ? err.message : 'Erro ao alterar palavra-passe';
       alert(message);
     } finally {
@@ -34,58 +33,59 @@ export default function PasswordForm() {
   }
 
   return (
-    <section className="text-gray-100 rounded-sm max-w-6xl mx-auto px-4 ">
-      <h2 className="text-sm font-semibold text-white mb-4">
-        Alteração Palavra-passe
-      </h2>
-
-      <form onSubmit={savePassword} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="md:col-span-2">
-            <label className="block text-xs text-white mb-1">Palavra-passe Antiga</label>
-            <input
-              type="password"
-              className="w-[49%] rounded-sm  border border-white/10 px-3 py-2 text-sm outline-none focus:ring-2 ring-orange-500"
-              value={pwd.current}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setPwd({ ...pwd, current: e.target.value })
-              }
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs text-white mb-1">Palavra-passe Nova</label>
-            <input
-              type="password"
-              className="w-full mb-3 rounded-sm bg-[#FFFFFF33] border-white/10 px-3 py-2 text-sm outline-none focus:ring-2 ring-orange-500"
-              value={pwd.next}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setPwd({ ...pwd, next: e.target.value })
-              }
-            />
-          
-            <label className="block text-xs text-white mb-1">Confirmar palavra-passe</label>
-            <input
-              type="password"
-              className="w-full rounded-sm bg-[#FFFFFF33] border border-white/10 px-3 py-2 text-sm outline-none focus:ring-2 ring-orange-500"
-              value={pwd.confirm}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setPwd({ ...pwd, confirm: e.target.value })
-              }
-            />
-          </div>
-
-          
+    <section className="max-w-5xl mx-auto px-4 md:px-6">
+      <div className="rounded-xl border border-white/10 bg-[#1E1E1E] p-6 text-gray-100">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-sm font-semibold">Alteração de Palavra-passe</h2>
         </div>
 
-        <button
-          type="submit"
-          disabled={savingPwd}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-orange-600 hover:bg-orange-500 transition disabled:opacity-60"
-        >
-          <FaLock /> {savingPwd ? 'A guardar...' : 'Guardar alterações'}
-        </button>
-      </form>
+        <form onSubmit={savePassword} className="space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Senha antiga */}
+            <div className="md:col-span-2">
+              <label className="block text-xs mb-1">Palavra-passe Antiga</label>
+              <input
+                type="password"
+                className="w-full rounded-md bg-white/10 border border-white/10 px-3 py-2 text-sm outline-none focus:ring-2 ring-orange-500"
+                value={pwd.current}
+                onChange={(e) => setPwd({ ...pwd, current: e.target.value })}
+              />
+            </div>
+
+            {/* Senha nova */}
+            <div>
+              <label className="block text-xs mb-1">Palavra-passe Nova</label>
+              <input
+                type="password"
+                className="w-full rounded-md bg-white/10 border border-white/10 px-3 py-2 text-sm outline-none focus:ring-2 ring-orange-500"
+                value={pwd.next}
+                onChange={(e) => setPwd({ ...pwd, next: e.target.value })}
+              />
+            </div>
+
+            {/* Confirmar */}
+            <div>
+              <label className="block text-xs mb-1">Confirmar Palavra-passe</label>
+              <input
+                type="password"
+                className="w-full rounded-md bg-white/10 border border-white/10 px-3 py-2 text-sm outline-none focus:ring-2 ring-orange-500"
+                value={pwd.confirm}
+                onChange={(e) => setPwd({ ...pwd, confirm: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <button
+              type="submit"
+              disabled={savingPwd}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-orange-600 hover:bg-orange-500 transition disabled:opacity-60"
+            >
+              <FaLock /> {savingPwd ? 'A guardar…' : 'Guardar alterações'}
+            </button>
+          </div>
+        </form>
+      </div>
     </section>
   );
 }

@@ -1,3 +1,4 @@
+// src/app/api/register/route.ts
 import { NextResponse } from 'next/server';
 import { SignJWT } from 'jose';
 import { cookies } from 'next/headers';
@@ -7,10 +8,12 @@ export const dynamic = 'force-dynamic';
 
 const COOKIE_NAME = 'tf_token';
 
+// usa sempre sem www no .env
 const WP_BASE = (process.env.WP_BASE_URL || process.env.WP_URL || '').replace(/\/$/, '');
 const APP_USER = process.env.WP_APP_USER || '';
-const APP_PASS_RAW = process.env.WP_APP_PASS || '';
-const APP_PASS = APP_PASS_RAW.replace(/^"(.*)"$/, '$1').replace(/\s+/g, ''); // limpa aspas/espaços
+// aceita WP_APP_PASS ou WP_APP_PASSWORD e remove aspas/espaços
+const APP_PASS_RAW = process.env.WP_APP_PASS || process.env.WP_APP_PASSWORD || '';
+const APP_PASS = APP_PASS_RAW.replace(/^"(.*)"$/, '$1').replace(/\s+/g, '');
 const JWT_SECRET = process.env.JWT_SECRET || '';
 
 const CROSS = process.env.CROSS_SITE_COOKIES === '1';
@@ -64,7 +67,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'username, email e password são obrigatórios' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
     }
 
-    // (Opcional) Garante que as credenciais são de administrador
+    // Confirma se credenciais APP são de admin
     try {
       const meRes = await fetch(`${WP_BASE}/wp-json/wp/v2/users/me?context=edit`, {
         headers: { Authorization: basic, Accept: 'application/json' },
@@ -78,9 +81,9 @@ export async function POST(req: Request) {
           { status: 500, headers: { 'Cache-Control': 'no-store' } }
         );
       }
-    } catch { /* continua sem travar */ }
+    } catch { /* ignora */ }
 
-    // (Opcional) Verifica se o e-mail já existe para UX melhor
+    // Verifica se email já existe
     try {
       const checkRes = await fetch(`${WP_BASE}/wp-json/wp/v2/users?context=edit&per_page=100&search=${encodeURIComponent(email)}`, {
         headers: { Authorization: basic, Accept: 'application/json' }, cache: 'no-store',
@@ -89,38 +92,21 @@ export async function POST(req: Request) {
       if (Array.isArray(arr) && arr.some((u) => String(u?.email || '').toLowerCase() === email.toLowerCase())) {
         return NextResponse.json({ error: 'E-mail já registado', code: 'existing_user_email' }, { status: 409, headers: { 'Cache-Control': 'no-store' } });
       }
-    } catch { /* segue o jogo */ }
+    } catch {}
 
-    // Cria utilizador
+    // Cria user
     const createRes = await fetch(`${WP_BASE}/wp-json/wp/v2/users`, {
       method: 'POST',
-      headers: {
-        Authorization: basic,
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
+      headers: { Authorization: basic, 'Content-Type': 'application/json', Accept: 'application/json' },
       cache: 'no-store',
-      body: JSON.stringify({
-        username,
-        email,
-        password,
-        ...(displayName ? { name: displayName } : {}),
-      }),
+      body: JSON.stringify({ username, email, password, ...(displayName ? { name: displayName } : {}) }),
     });
 
     const createJson = (await safeJson<WpUser & { code?: string; message?: string }>(createRes)) || {};
     if (!createRes.ok || !createJson?.id) {
       return NextResponse.json(
-        {
-          error: createJson?.message || 'Erro ao criar utilizador no WordPress.',
-          code: createJson?.code || 'wp_error',
-          wpStatus: createRes.status,
-          wpBody: createJson, // remover depois do debug se quiser
-        },
-        {
-          status: createRes.status === 401 ? 401 : 400,
-          headers: { 'Cache-Control': 'no-store', 'x-wp-status': String(createRes.status) },
-        }
+        { error: createJson?.message || 'Erro ao criar utilizador no WordPress.', code: createJson?.code || 'wp_error', wpStatus: createRes.status, wpBody: createJson },
+        { status: createRes.status === 401 ? 401 : 400, headers: { 'Cache-Control': 'no-store', 'x-wp-status': String(createRes.status) } }
       );
     }
 
@@ -161,15 +147,7 @@ export async function POST(req: Request) {
       .sign(new TextEncoder().encode(JWT_SECRET));
 
     const ck = await cookies();
-    await ck.set({
-      name: COOKIE_NAME,
-      value: token,
-      httpOnly: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 7,
-      sameSite: CROSS ? 'none' : 'lax',
-      secure: CROSS ? true : IS_PROD,
-    });
+    await ck.set({ name: COOKIE_NAME, value: token, httpOnly: true, path: '/', maxAge: 60 * 60 * 24 * 7, sameSite: CROSS ? 'none' : 'lax', secure: CROSS ? true : IS_PROD });
 
     return NextResponse.json(
       { ok: true, user: payload, redirect: nextPath, message: 'Conta criada e sessão iniciada.' },
@@ -178,9 +156,6 @@ export async function POST(req: Request) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[REGISTER_API_ERROR]', msg);
-    return NextResponse.json(
-      { error: 'Erro interno no servidor', details: msg },
-      { status: 500, headers: { 'Cache-Control': 'no-store' } }
-    );
+    return NextResponse.json({ error: 'Erro interno no servidor', details: msg }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
   }
 }

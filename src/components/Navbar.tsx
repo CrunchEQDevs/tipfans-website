@@ -17,11 +17,9 @@ import {
   FaBasketballBall,
   FaGamepad,
   FaUser,
-  FaMoon,
   FaChevronDown,
 } from 'react-icons/fa';
 import { FaXTwitter, FaTableTennisPaddleBall } from 'react-icons/fa6';
-import { BsSun } from 'react-icons/bs';
 import { motion, AnimatePresence } from 'framer-motion';
 import LoginPanel from './LoginPanel';
 import { useAuth } from '@/context/AuthContext';
@@ -110,11 +108,11 @@ export default function Navbar() {
 
   return (
     <>
-      <header className="w-full fixed inset-x-0 top-0 z-50 ">
+      <header className="w-full fixed inset-x-0 top-0 z-40">
         {/* TOP BAR */}
-        <div className="bg-[#1E1E1E] px-4 py-4 flex justify-between items-center ">
+        <div className="bg-[#1E1E1E] px-4 py-2 flex justify-between items-center">
           {/* Logo */}
-          <div className="flex items-center gap-4 ml-10 md:ml-44 mt-3 p-[11px]">
+          <div className="flex items-center gap-4 ml-10 md:ml-44 mt-3 p-[10px]">
             {mounted && (
               <Image
                 onClick={scrollToHome}
@@ -139,14 +137,17 @@ export default function Navbar() {
         </div>
 
         {/* NAV PRINCIPAL */}
-        <nav ref={navRef} className="relative bg-[#1E10C7] text-white py-3 px-0 sm:px-4 w-full h-[55px]">
-          <div className="max-w-7xl mx-auto relative flex items-center gap-4">
+        <nav
+          ref={navRef}
+          className="relative bg-[#1E10C7] text-white w-full overflow-hidden"
+        >
+          <div className="max-w-7xl mx-auto relative flex items-center gap-4 px-4 sm:px-6">
             {/* MENU DESKTOP (CENTRADO) */}
-            <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-7 text-sm font-semibold uppercase tracking-wide ">
+            <div className="hidden md:flex flex-1 justify-center items-center gap-7 text-sm font-semibold uppercase tracking-wide">
               {menuItems.map((item) => (
                 <div
                   key={item.title}
-                  className="group relative "
+                  className="group relative"
                   onMouseEnter={() => setOpenMenu(item.title)}
                   onMouseLeave={() => setOpenMenu(null)}
                 >
@@ -160,7 +161,7 @@ export default function Navbar() {
                     {item.title}
                   </button>
 
-                  {/* Submenu desktop com ícones */}
+                  {/* Submenu desktop */}
                   <AnimatePresence>
                     {openMenu === item.title && item.submenu && (
                       <motion.div
@@ -200,11 +201,11 @@ export default function Navbar() {
             {/* PESQUISA + LOGIN / PERFIL (DIREITA) */}
             <div className="ml-auto flex items-center gap-4">
               {/* Botão de pesquisa */}
-              <div className="relative hidden sm:flex items-center ">
+              <div className="relative hidden sm:flex items-center">
                 <button
                   onClick={() => setSearchOpen((v) => !v)}
                   aria-label="Pesquisar"
-                  className="w-8 h-8  hover:bg-white/30 grid place-items-center rounded"
+                  className="w-8 h-8 hover:bg-white/30 grid place-items-center rounded"
                 >
                   <FaSearch className="text-white" />
                 </button>
@@ -228,7 +229,7 @@ export default function Navbar() {
 
               {user ? (
                 <div className="hidden sm:flex items-center gap-3 text-sm">
-                  <span className="hidden md:inline">👋 Olá, {user.name.split(' ')[0]}</span>
+                  <span className="hidden md:inline">👋 Olá, {user.name?.split(' ')[0] || 'User'}</span>
                   <Link href="/perfil" className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-white">
                     Perfil
                   </Link>
@@ -297,7 +298,7 @@ export default function Navbar() {
                                 onClick={() => setMobileOpen(false)}
                                 className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-white/10"
                               >
-                                <span className="grid h-7 w-7 place-items-center rounded  text-[#FF4500]">
+                                <span className="grid h-7 w-7 place-items-center rounded text-[#FF4500]">
                                   <span className="text-[16px] leading-none [&_svg]:align-middle">
                                     {sub.icon}
                                   </span>
@@ -332,22 +333,42 @@ export default function Navbar() {
                 </div>
               </div>
 
-              {/* CTA login/registro no mobile */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setLoginOpen(true)}
-                  className="flex-1 bg-[#1E10C7] hover:bg-gray-700 font-bold hover:opacity-90 transition px-4 py-2 text-white text-sm rounded"
-                >
-                  Entrar
-                </button>
-                <Link
-                  href="/registro"
-                  onClick={() => setMobileOpen(false)}
-                  className="flex-1 text-center bg-[#ff4500] hover:bg-gray-700 font-bold transition px-4 py-2 text-white text-sm rounded"
-                >
-                  Registar
-                </Link>
-              </div>
+              {/* CTA login/registro ou perfil/logout no mobile */}
+              {user ? (
+                <div className="flex flex-col gap-2 pt-3 border-t border-white/10">
+                  <p className="text-white text-sm">👋 Olá, {user.name?.split(' ')[0] || 'User'}</p>
+                  <Link
+                    href="/perfil"
+                    onClick={() => setMobileOpen(false)}
+                    className="w-full text-center bg-green-600 hover:bg-green-700 px-4 py-2 rounded text-white text-sm"
+                  >
+                    Perfil
+                  </Link>
+                  <Link
+                    href="/logout"
+                    onClick={() => setMobileOpen(false)}
+                    className="w-full text-center bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-white text-sm"
+                  >
+                    Sair
+                  </Link>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setLoginOpen(true)}
+                    className="flex-1 bg-[#1E10C7] hover:bg-gray-700 font-bold hover:opacity-90 transition px-4 py-2 text-white text-sm rounded"
+                  >
+                    Entrar
+                  </button>
+                  <Link
+                    href="/registro"
+                    onClick={() => setMobileOpen(false)}
+                    className="flex-1 text-center bg-[#ff4500] hover:bg-gray-700 font-bold transition px-4 py-2 text-white text-sm rounded"
+                  >
+                    Registar
+                  </Link>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
