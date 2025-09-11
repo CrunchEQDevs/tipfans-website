@@ -1,14 +1,13 @@
 // src/app/api/login/route.ts
 import { NextResponse } from 'next/server';
 import { SignJWT } from 'jose';
-import { cookies } from 'next/headers';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const COOKIE_NAME = 'tf_token';
 
-// use SEMPRE o host sem www no .env: https://wp.tipfans.com
+// use SEMPRE o host sem barra no final: https://wp.tipfans.com
 const WP = (process.env.WP_URL || process.env.WP_BASE_URL || '').replace(/\/$/, '');
 const APP_USER = process.env.WP_APP_USER || '';
 
@@ -57,16 +56,30 @@ async function getUserByEmailViaApp(email: string) {
   return arr.find((x: any) => String(x?.email || '').toLowerCase() === email.toLowerCase()) || null;
 }
 
-/* ---------- WP JWT ---------- */
+/* ---------- WP JWT (com fallback sem rewrite) ---------- */
 async function wpToken(username: string, password: string) {
-  const res = await fetch(`${WP}/wp-json/jwt-auth/v1/token`, {
+  const body = JSON.stringify({ username, password });
+
+  // tentativa padrão
+  let res = await fetch(`${WP}/wp-json/jwt-auth/v1/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     cache: 'no-store',
-    body: JSON.stringify({ username, password }),
+    body,
   });
+
+  // fallback sem rewrite (caso 404)
+  if (res.status === 404) {
+    res = await fetch(`${WP}/index.php?rest_route=/jwt-auth/v1/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+      body,
+    });
+  }
+
   const json = await res.json().catch(() => ({} as any));
-  return { ok: res.ok && !!json?.token, status: res.status, json };
+  return { ok: res.ok && !!(json as any)?.token, status: res.status, json };
 }
 
 function json401(body: any, extraHeaders?: Record<string, string>) {
@@ -77,10 +90,16 @@ function json401(body: any, extraHeaders?: Record<string, string>) {
 export async function POST(req: Request) {
   try {
     if (!WP) {
-      return NextResponse.json({ error: 'WP_URL/WP_BASE_URL não configurado' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json(
+        { error: 'WP_URL/WP_BASE_URL não configurado' },
+        { status: 500, headers: { 'Cache-Control': 'no-store' } }
+      );
     }
     if (!JWT_SECRET) {
-      return NextResponse.json({ error: 'JWT_SECRET não configurado' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json(
+        { error: 'JWT_SECRET não configurado' },
+        { status: 500, headers: { 'Cache-Control': 'no-store' } }
+      );
     }
 
     const body = (await req.json().catch(() => ({}))) as {
@@ -96,13 +115,13 @@ export async function POST(req: Request) {
     const attempts: string[] = [];
     let lastWpStatus = 0;
 
-    // 1) tenta o que o user digitou (username OU e-mail)
+    // 1) tenta o que o usuário digitou (username OU e-mail)
     let loginName = identifier;
     let tok = await wpToken(loginName, password);
     lastWpStatus = tok.status;
     if (tok.ok) attempts.push(`direct:${loginName}`);
 
-    // 2) se falhou e é e-mail, resolve username por APP
+    // 2) se falhou e é e-mail, resolve username via APP
     if (!tok.ok && identifier.includes('@')) {
       const byEmail = await getUserByEmailViaApp(identifier);
       const mapped = safe(byEmail?.slug || byEmail?.username || byEmail?.name || byEmail?.user_login);
@@ -134,20 +153,20 @@ export async function POST(req: Request) {
     }
 
     if (!tok.ok) {
-      const msg = tok.json?.message || 'Usuário ou senha inválidos';
+      const msg = (tok.json as any)?.message || 'Usuário ou senha inválidos';
       return json401(
         { error: msg },
-        { 'x-login-hint': attempts.join('>') || 'failed', 'x-wp-token-status': String(lastWpStatus), 'x-wp-code': String(tok.json?.code || '') }
+        { 'x-login-hint': attempts.join('>') || 'failed', 'x-wp-token-status': String(lastWpStatus), 'x-wp-code': String((tok.json as any)?.code || '') }
       );
     }
 
     // Token do WP
-    const wpTokenStr = safe(tok.json?.token || '');
-    const wpUserId   = Number(tok.json?.user_id || 0);
-    const tEmail     = safe(tok.json?.user_email || '');
-    const tDispName  = safe(tok.json?.user_display_name || '');
-    const tNiceName  = safe(tok.json?.user_nicename || '');
-    const tLogin     = safe(tok.json?.user_login || '');
+    const wpTokenStr = safe((tok.json as any)?.token || '');
+    const wpUserId   = Number((tok.json as any)?.user_id || 0);
+    const tEmail     = safe((tok.json as any)?.user_email || '');
+    const tDispName  = safe((tok.json as any)?.user_display_name || '');
+    const tNiceName  = safe((tok.json as any)?.user_nicename || '');
+    const tLogin     = safe((tok.json as any)?.user_login || '');
 
     // Base inicial do payload
     let email = tEmail || (identifier.includes('@') ? identifier : '');
@@ -157,7 +176,8 @@ export async function POST(req: Request) {
     let memberSince = new Date().toISOString();
     let finalUserId = wpUserId || undefined;
 
-    // === Enriquecimento prioritário via Application Password (o mais confiável) ===
+    // === Enriquecimento prioritário via Application Password (se disponível) ===
+    let enriched = 'none';
     let userByApp: any = null;
     if (wpUserId) userByApp = await getUserByIdViaApp(wpUserId);
     if (!userByApp && email) userByApp = await getUserByEmailViaApp(email);
@@ -169,10 +189,14 @@ export async function POST(req: Request) {
       role = (Array.isArray(userByApp?.roles) && userByApp.roles.length) ? String(userByApp.roles[0]).toLowerCase() : role;
       memberSince = (userByApp?.registered_date ? new Date(userByApp.registered_date).toISOString() : memberSince);
       finalUserId = Number(userByApp?.id || finalUserId) || undefined;
+      enriched = 'app';
     } else {
       // fallback com JWT do próprio user (se ID bater)
       try {
-        const meRes = await fetch(`${WP}/wp-json/wp/v2/users/me`, { headers: { Authorization: `Bearer ${wpTokenStr}` }, cache: 'no-store' });
+        const meRes = await fetch(`${WP}/wp-json/wp/v2/users/me`, {
+          headers: { Authorization: `Bearer ${wpTokenStr}` },
+          cache: 'no-store',
+        });
         const meJson = await meRes.json().catch(() => ({}));
         const idMatches = wpUserId ? Number(meJson?.id || 0) === wpUserId : false;
         if (meRes.ok && idMatches) {
@@ -182,9 +206,16 @@ export async function POST(req: Request) {
           role = (Array.isArray(meJson?.roles) && meJson.roles.length) ? String(meJson?.roles[0]).toLowerCase() : role;
           memberSince = (meJson?.registered_date ? new Date(meJson.registered_date).toISOString() : memberSince);
           finalUserId = Number(meJson?.id || finalUserId) || undefined;
+          enriched = 'jwt';
         }
-      } catch {}
+      } catch {/* ignore */}
     }
+
+    // Cookies conforme ambiente (evita erro SameSite=None sem secure)
+    const proto = req.headers.get('x-forwarded-proto') || new URL(req.url).protocol.replace(':', '');
+    const isHttps = proto === 'https';
+    const sameSite: 'lax' | 'strict' | 'none' = CROSS ? 'none' : 'lax';
+    const secure = CROSS ? true : isHttps;
 
     // Payload final do cookie da app
     const payload = { email, name, role, avatarUrl, memberSince, stats: {} as Record<string, unknown>, wpUserId: finalUserId };
@@ -196,20 +227,38 @@ export async function POST(req: Request) {
       .setExpirationTime('7d')
       .sign(new TextEncoder().encode(JWT_SECRET));
 
-    const ck = await cookies();
+    // cria a resposta e SETA cookies no próprio response
+    const res = NextResponse.json(
+      { ok: true, user: payload },
+      { headers: { 'Cache-Control': 'no-store', 'x-login-hint': 'ok', 'x-user-enriched': enriched } }
+    );
 
-    // Cookies conforme ambiente
-    const proto = req.headers.get('x-forwarded-proto') || new URL(req.url).protocol.replace(':', '');
-    const isHttps = proto === 'https';
-    const sameSite = CROSS ? 'none' : 'lax';
-    const secure   = CROSS ? true : isHttps;
+    res.cookies.set({
+      name: COOKIE_NAME,
+      value: appToken,
+      httpOnly: true,
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+      sameSite,
+      secure,
+    });
 
-    await ck.set({ name: COOKIE_NAME, value: appToken, httpOnly: true, path: '/', maxAge: 60 * 60 * 24 * 7, sameSite, secure });
-    await ck.set({ name: 'wp_jwt', value: wpTokenStr, httpOnly: true, path: '/', maxAge: 60 * 60 * 24 * 7, sameSite, secure });
+    res.cookies.set({
+      name: 'wp_jwt',
+      value: wpTokenStr,
+      httpOnly: true,
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+      sameSite,
+      secure,
+    });
 
-    return NextResponse.json({ ok: true, user: payload }, { headers: { 'Cache-Control': 'no-store', 'x-login-hint': attempts.join('>') || 'ok' } });
+    return res;
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ error: 'Erro interno', details: msg }, { status: 500, headers: { 'Cache-Control': 'no-store', 'x-login-hint': 'exception' } });
+    return NextResponse.json(
+      { error: 'Erro interno', details: msg },
+      { status: 500, headers: { 'Cache-Control': 'no-store', 'x-login-hint': 'exception' } }
+    );
   }
 }

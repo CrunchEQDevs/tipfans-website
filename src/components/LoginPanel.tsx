@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 
 type LoginPanelProps = {
   isOpen: boolean;
-  onClose: () => void;
+  onClose?: () => void; // ← opcional agora
   initialTab?: 'login' | 'register';
 };
 
@@ -66,7 +66,7 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
     const role = (roleParam ?? user?.role ?? localStorage.getItem('userRole') ?? '').toLowerCase();
 
     if (role === 'administrator') {
-      window.location.href = 'https://tipfans.com/wp/wp-admin/index.php';
+      window.location.href = 'https://wp.tipfans.com/wp-admin/';
       return;
     }
     if (role === 'author') {
@@ -98,7 +98,7 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
     setEmailLogin('');
     setSenhaLogin('');
     // fecha após um pequeno delay para ver o toast
-    setTimeout(onClose, 400);
+    setTimeout(() => onClose?.(), 400); // ← seguro
   };
 
   const canSubmitRegister = useMemo(() => {
@@ -159,7 +159,7 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
       setEmailReg('');
       setSenhaReg('');
       setSenhaReg2('');
-      setTimeout(onClose, 600);
+      setTimeout(() => onClose?.(), 600); // ← seguro
     } catch {
       const m = '❌ Erro de conexão com o servidor.';
       setMsgReg(m);
@@ -179,7 +179,7 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => !loadingLogin && !loadingReg && onClose()}
+            onClick={() => !loadingLogin && !loadingReg && onClose?.()} // ← seguro
           />
 
           {/* Off-canvas panel */}
@@ -209,7 +209,7 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
             <div className="flex items-center justify-between bg-black px-4 py-3 pt-[max(12px,env(safe-area-inset-top))]">
               <Image src="/Logo_TipFans.png" alt="Logo" width={180} height={40} className="h-auto" priority />
               <button
-                onClick={onClose}
+                onClick={() => onClose?.()} // ← seguro
                 disabled={loadingLogin || loadingReg}
                 className="text-white/90 hover:text-white text-xl disabled:opacity-50"
                 aria-label="Fechar"
@@ -225,7 +225,7 @@ export default function LoginPanel({ isOpen, onClose, initialTab = 'login' }: Lo
             </div>
 
             {/* Conteúdo rolável */}
-            <div className="flex flex-col h-[calc(100svh-40px-56px)] sm:h-[calc(100svh-56px-56px)] overflow-hidden">
+            <div className="flex flex-col h=[calc(100svh-40px-56px)] sm:h-[calc(100svh-56px-56px)] overflow-hidden">
               <div className="relative flex-1 overflow-y-auto px-4 py-5">
                 {/* Tabs */}
                 <div className="mb-5 flex items-center gap-8">

@@ -1,17 +1,18 @@
-'use client';
+import TipsDia from "@/components/tipsdodia/TipsDia";
+import { fetchTipsDia } from "@/lib/fetchTipsDia";
+import Hero from "@/components/Hero";
+import Ultimas from "@/components/Ultimas";
+import LoginPanel from "@/components/LoginPanel";
+import RankingMestresSection from "@/components/RankingMestresSection";
 
-import Hero from '@/components/Hero';
-import TipsDia from '@/components/TipsDia';
-import Ultimas from '@/components/Ultimas';
-import LoginPanel from '@/components/LoginPanel';
-import RankingMestresSection from '@/components/RankingMestresSection';
+export default async function Home() {
+  const tips = await fetchTipsDia(3); // busca no WP (server-side)
 
-export default function Home() {
   return (
     <div>
-      <LoginPanel isOpen={false} onClose={() => {}} />
+      <LoginPanel isOpen={false} /> {/* ← sem passar função do server */}
       <Hero />
-      <TipsDia />
+      <TipsDia tips={tips} />
       <Ultimas />
       <RankingMestresSection />
     </div>

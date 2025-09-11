@@ -139,7 +139,7 @@ export default function Navbar() {
         {/* NAV PRINCIPAL */}
         <nav
           ref={navRef}
-          className="relative bg-[#1E10C7] text-white w-full overflow-hidden"
+          className="relative bg-[#1E10C7] text-white w-full overflow-hidden p-3"
         >
           <div className="max-w-7xl mx-auto relative flex items-center gap-4 px-4 sm:px-6">
             {/* MENU DESKTOP (CENTRADO) */}

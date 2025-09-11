@@ -29,7 +29,7 @@ export default function Hero2() {
   const targetHref = slides[index]?.href || '/tips/futebol'
 
   return (
-   <section className="relative w-full h-[56vh] sm:h-[58vh] md:h-[62vh] lg:h-[90vh] overflow-hidden bg-black">
+   <section className="relative w-full h-[56vh] sm:h-[58vh] md:h-[60vh] lg:h-[65vh] 2xl:h-[60vh]  overflow-hidden bg-black">
 
       <AnimatePresence initial={false} mode="wait">
         <motion.div
