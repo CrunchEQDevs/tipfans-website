@@ -6,7 +6,7 @@ import LoginPanel from "@/components/LoginPanel";
 import RankingMestresSection from "@/components/RankingMestresSection";
 
 export default async function Home() {
-  const tips = await fetchTipsDia(3); // busca no WP (server-side)
+  const tips = await fetchTipsDia(6); // busca no WP (server-side)
 
   return (
     <div>
