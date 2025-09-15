@@ -354,10 +354,10 @@ export default async function LatestArticlePage({
 
         {/* ====== Sidebar (TIPS) ====== */}
         <aside className="md:col-span-1">
-          <div className="sticky top-24 space-y-4">
+          <div className="sticky top-[350px] space-y-4">
             <div className="overflow-hidden rounded-lg ring-white/10 bg-[#1E1E1E]">
               <div className="px-3 py-2 border-b border-[#ED4F00] flex items-center justify-between">
-                <span className="text-xl font-bold">TIPS {sportLabel}</span>
+                <span className="text-4xl font-bold">TIPS  {sportLabel}</span>
               </div>
 
               <div className="divide-y divide-white/20">
@@ -369,9 +369,9 @@ export default async function LatestArticlePage({
                     </div>
 
                     <div className="flex items-center gap-3 justify-center my-3">
-                      <p className="text-[18px] font-semibold text-[#ED4F00]">{g.home}</p>
+                      <p className="text-[18px] font-bold text-[#ED4F00]">{g.home}</p>
                       <span className="opacity-70">vs</span>
-                      <p className="text-[18px] font-semibold text-[#ED4F00]">{g.away}</p>
+                      <p className="text-[18px] font-bold text-[#ED4F00]">{g.away}</p>
                     </div>
 
                     <div className="flex items-center">

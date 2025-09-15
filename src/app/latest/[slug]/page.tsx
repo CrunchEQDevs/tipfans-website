@@ -16,7 +16,7 @@ type TipItem = {
   author?: string;
   image?: string;
   createdAt?: string;
-  href?: string; // pode vir pronto da API
+  href?: string;
 };
 
 type GameItem = {
@@ -33,82 +33,24 @@ type GameItem = {
    Endpoints (Noticias)
 ======================= */
 const WP_TIPS_ENDPOINT = '/api/wp/news';
-const WP_TIPS_FALLBACK = '';
-const WP_GAMES_ENDPOINT = '';
+const WP_TIPS_FALLBACK = '';  // sem fallback (cards mostram skeleton)
+const WP_GAMES_ENDPOINT = ''; // mock na sidebar por enquanto
 
 /* =======================
-   Mocks
+   Mock só para GAMES (sidebar)
 ======================= */
-const FALLBACK_TIPS: TipItem[] = Array.from({ length: 16 }, (_, i) => ({
-  id: String(i + 1),
-  title: `Notícia #${i + 1}`,
-  sport: i % 2 === 0 ? 'Futebol' : 'Basquete',
-  league: 'Liga PT',
-  teams: '—',
-  author: `Redação #${i + 1}`,
-  image: '/noticia1.jpg',
-}));
-
 const FALLBACK_GAMES: GameItem[] = [
-  { id: 'g1', home: 'Real',  away: 'Barça',   league: 'LaLiga',         startAt: 'Hoje 21:00',    odds: { H: 2.50, D: 3.50, A: 2.70 } },
+  { id: 'g1', home: 'Real',    away: 'Barça',   league: 'LaLiga',         startAt: 'Hoje 21:00',    odds: { H: 2.50, D: 3.50, A: 2.70 } },
   { id: 'g2', home: 'Man City', away: 'Arsenal', league: 'Premier League', startAt: 'Amanhã 16:30', odds: { H: 2.05, D: 3.60, A: 3.40 } },
-  { id: 'g3', home: 'PSG',   away: 'Lyon',    league: 'Ligue 1',        startAt: 'Amanhã 20:00',  odds: { H: 1.70, D: 3.90, A: 4.60 } },
-  { id: 'g4', home: 'Inter', away: 'Milan',   league: 'Serie A',        startAt: 'Dom 19:45',     odds: { H: 2.30, D: 3.30, A: 3.10 } },
-  { id: 'g5', home: 'Benfica', away: 'Porto', league: 'Liga PT',        startAt: 'Hoje 20:45',    odds: { H: 2.10, D: 3.20, A: 3.30 } },
+  { id: 'g3', home: 'PSG',     away: 'Lyon',    league: 'Ligue 1',        startAt: 'Amanhã 20:00',  odds: { H: 1.70, D: 3.90, A: 4.60 } },
+  { id: 'g4', home: 'Inter',   away: 'Milan',   league: 'Serie A',        startAt: 'Dom 19:45',     odds: { H: 2.30, D: 3.30, A: 3.10 } },
+  { id: 'g5', home: 'Benfica', away: 'Porto',   league: 'Liga PT',        startAt: 'Hoje 20:45',    odds: { H: 2.10, D: 3.20, A: 3.30 } },
 ];
 
 /* =======================
-   Config + normalização
+   Helpers (sem SPORT_CONFIG)
 ======================= */
-const SPORT_CONFIG: Record<
-  'futebol' | 'basquete' | 'tenis' | 'esports',
-  {
-    name: string;
-    bannerTitle: string;
-    bannerDesc: string;
-    bannerImage: string;
-    cardTitleBase: string;
-    cardImage: string;
-    cardSub: string;
-  }
-> = {
-  futebol: {
-    name: 'Futebol',
-    bannerTitle: 'Tips de Futebol',
-    bannerDesc: 'As melhores dicas e palpites do mundo do futebol.',
-    bannerImage: '/B_futebol.png',
-    cardTitleBase: 'Notícia de Futebol',
-    cardImage: '/futebol.png',
-    cardSub: 'Liga PT',
-  },
-  basquete: {
-    name: 'Basquete',
-    bannerTitle: 'Tips de Basquete',
-    bannerDesc: 'Análises e palpites certeiros para a bola ao cesto.',
-    bannerImage: '/B_basquete.png',
-    cardTitleBase: 'Notícia de Basquete',
-    cardImage: '/basquete.png',
-    cardSub: 'Liga ACB / NBA',
-  },
-  tenis: {
-    name: 'Ténis',
-    bannerTitle: 'Tips de Ténis',
-    bannerDesc: 'Cobertura de torneios e jogos com foco em valor.',
-    bannerImage: '/B_tenis.png',
-    cardTitleBase: 'Notícia de Ténis',
-    cardImage: '/tennis.png',
-    cardSub: 'ATP / WTA',
-  },
-  esports: {
-    name: 'eSports',
-    bannerTitle: 'Tips de eSports',
-    bannerDesc: 'Palpites e leitura de meta para as principais ligas.',
-    bannerImage: '/B_esport.png',
-    cardTitleBase: 'Notícia de eSports',
-    cardImage: '/eSports.png',
-    cardSub: 'CS/LoL/Valo',
-  },
-};
+type SlugKey = 'futebol' | 'basquete' | 'tenis' | 'esports' | 'todos';
 
 function toSlug(s: string) {
   return (s || '')
@@ -119,14 +61,12 @@ function toSlug(s: string) {
     .replace(/(^-|-$)/g, '');
 }
 
-function normalizeSlug(raw?: string): keyof typeof SPORT_CONFIG {
+function normalizeSlug(raw?: string): SlugKey {
   if (!raw) return 'futebol';
   const s = (Array.isArray(raw) ? raw[0] : raw)
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase()
-    .replace(/[\s_]+/g, '')
-    .replace(/-+/g, '');
+    .normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
+    .replace(/[\s_]+/g, '').replace(/-+/g, '');
+  if (s === 'todos' || s === 'all' || s === 'ultimas' || s === 'ultimos' || s === 'news') return 'todos';
   if (s.includes('esport') || s.includes('egames') || s.includes('gaming')) return 'esports';
   if (s.startsWith('fut')) return 'futebol';
   if (s.startsWith('ten')) return 'tenis';
@@ -134,12 +74,52 @@ function normalizeSlug(raw?: string): keyof typeof SPORT_CONFIG {
   return 'futebol';
 }
 
+function labelFromSlug(s: SlugKey) {
+  return s === 'todos' ? 'Últimas' :
+         s === 'futebol' ? 'Futebol' :
+         s === 'basquete' ? 'Basquete' :
+         s === 'tenis' ? 'Ténis' : 'eSports';
+}
+
+function bannerTitle(s: SlugKey) {
+  return s === 'todos' ? 'Últimas notícias' :
+         s === 'futebol' ? 'Tips de Futebol' :
+         s === 'basquete' ? 'Tips de Basquete' :
+         s === 'tenis' ? 'Tips de Ténis' :
+         'Tips de eSports';
+}
+
+function bannerDesc(s: SlugKey) {
+  return s === 'todos' ? 'Tudo o que saiu nas nossas categorias.' :
+         s === 'futebol' ? 'As melhores dicas e palpites do mundo do futebol.' :
+         s === 'basquete' ? 'Análises e palpites certeiros para a bola ao cesto.' :
+         s === 'tenis' ? 'Cobertura de torneios e jogos com foco em valor.' :
+         'Palpites e leitura de meta para as principais ligas.';
+}
+
+function bannerImageFromSlug(s: SlugKey) {
+  return s === 'futebol' ? '/B_futebol.png' :
+         s === 'basquete' ? '/B_basquete.png' :
+         s === 'tenis' ? '/B_tenis.png' :
+         s === 'esports' ? '/B_esport.png' :
+         '/B_futebol.png'; // todos
+}
+
+async function fetchJson(url: string): Promise<any> {
+  const u = new URL(url, window.location.origin);
+  u.searchParams.set('_', String(Date.now()));
+  const res = await fetch(u.toString(), { cache: 'no-store' });
+  const ct = res.headers.get('content-type') || '';
+  if (!ct.includes('application/json')) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
 /* =======================
         Componente
 ======================= */
 export default function LatestListPage() {
-  const [tips, setTips] = useState<TipItem[]>(FALLBACK_TIPS);
-  const [tipsLoading, setTipsLoading] = useState(false);
+  const [tips, setTips] = useState<TipItem[]>([]);
+  const [tipsLoading, setTipsLoading] = useState(true); // começa em loading → só SKELETON
   const [games, setGames] = useState<GameItem[] | null>(null);
   const [gamesLoading, setGamesLoading] = useState(false);
 
@@ -148,34 +128,28 @@ export default function LatestListPage() {
 
   const params = useParams<{ slug: string }>();
   const slug = normalizeSlug(params?.slug);
-  const cfg = SPORT_CONFIG[slug];
+  const name = labelFromSlug(slug);
+  const bTitle = bannerTitle(slug);
+  const bDesc = bannerDesc(slug);
+  const bImage = bannerImageFromSlug(slug);
 
   const bcRef = useRef<BroadcastChannel | null>(null);
-
-  async function fetchJson(url: string): Promise<any> {
-    const u = new URL(url, window.location.origin);
-    u.searchParams.set('_', String(Date.now()));
-    const res = await fetch(u.toString(), { cache: 'no-store' });
-    const ct = res.headers.get('content-type') || '';
-    if (!ct.includes('application/json')) throw new Error(`HTTP ${res.status}`);
-    return res.json();
-  }
 
   const loadTips = useCallback(async () => {
     try {
       setTipsLoading(true);
 
       const base = new URL(WP_TIPS_ENDPOINT, window.location.origin);
-      base.searchParams.set('sport', slug);
+      if (slug !== 'todos') base.searchParams.set('sport', slug); // filtra só quando não for "todos"
       base.searchParams.set('per_page', '12');
+      base.searchParams.set('orderby', 'date');
+      base.searchParams.set('order', 'desc');
 
       let json: any = {};
       try {
         json = await fetchJson(base.toString());
       } catch {
-        if (WP_TIPS_FALLBACK) {
-          try { json = await fetchJson(WP_TIPS_FALLBACK); } catch { /* ignore */ }
-        }
+        json = { items: [] };
       }
 
       const rawItems: any[] =
@@ -183,7 +157,7 @@ export default function LatestListPage() {
         Array.isArray(json?.data) ? json.data :
         Array.isArray(json) ? json : [];
 
-      const list: TipItem[] = (rawItems.length ? rawItems : FALLBACK_TIPS).map((p: any, idx: number) => {
+      const list: TipItem[] = rawItems.map((p: any, idx: number) => {
         let id = p?.id;
         if (!id && typeof p?.href === 'string') {
           const m = p.href.match(/\/(\d+)(?:-|$)/);
@@ -191,16 +165,23 @@ export default function LatestListPage() {
         }
         if (!id) id = String(idx + 1);
 
+        const title = p?.titulo ?? p?.title ?? '';
+        const sportFromItem = p?.categorySlug ?? p?.sport ?? slug;
+        const computedSlug = slug === 'todos' ? (sportFromItem || 'futebol') : slug;
+
         return {
           id,
-          title: p?.title ?? '',
-          image: p?.image ?? p?.cover ?? cfg.cardImage, // aceita image OU cover
-          createdAt: p?.date ?? p?.createdAt ?? undefined,
-          href: p?.href ?? `/latest/${slug}/${id}-${toSlug(p?.title ?? '')}`,
+          title,
+          image: p?.image ?? p?.cover ?? undefined, // NENHUM placeholder automático
+          createdAt: p?.data ?? p?.date ?? undefined,
+          href: p?.hrefPost ?? p?.href ?? `/latest/${computedSlug}/${id}-${toSlug(title)}`,
         };
       });
 
+      // 12 mais recentes
       let finalList = list.slice(0, 12);
+
+      // highlight sobe pro topo (se houver)
       if (highlightId) {
         const idx = finalList.findIndex((it) => String(it.id) === highlightId);
         if (idx > -1) {
@@ -213,7 +194,7 @@ export default function LatestListPage() {
     } finally {
       setTipsLoading(false);
     }
-  }, [highlightId, slug, cfg.cardImage]);
+  }, [highlightId, slug]);
 
   useEffect(() => {
     loadTips();
@@ -256,32 +237,40 @@ export default function LatestListPage() {
   const visible = useMemo(() => tips.slice(0, 12), [tips]);
   const gamesList = useMemo(() => (games ?? FALLBACK_GAMES).slice(0, 6), [games]);
 
-  const forcedTitle = (i: number) => `${cfg.cardTitleBase} #${i + 1}`;
-  const forcedImage = cfg.cardImage;
+  /* Skeleton card para grid */
+  const CardSkeleton = () => (
+    <div className="border border-white/10 bg-white/5 overflow-hidden animate-pulse rounded-md">
+      <div className="aspect-[16/15] bg-white/10" />
+      <div className="p-3 space-y-2">
+        <div className="h-3 w-24 bg-white/10 rounded" />
+        <div className="h-4 w-3/4 bg-white/10 rounded" />
+        <div className="h-3 w-2/3 bg-white/10 rounded" />
+      </div>
+    </div>
+  );
 
   return (
     <main key={slug} className="min-h-screen bg-[#1E1E1E] text-white">
-      {/* Banner */}
-      <section className="relative">
-        <div className="relative h-80 md:h-80 max-w-7xl mx-auto py-40 mt-20">
-          <Image
-            src={cfg.bannerImage}
-            alt={cfg.bannerTitle}
-            fill
-            className="object-cover object-[50%_30%]"
-            sizes="100vw"
-            priority
-          />
-          <div className="mb-4 w-full">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-              <div className="text-white">
-                <h1 className="mt-2 text-2xl md:text-3xl font-extrabold tracking-tight">
-                  {cfg.bannerTitle}
-                </h1>
-                <p className="mt-1 text-sm md:text-base text-white/90">
-                  {cfg.bannerDesc}
-                </p>
-              </div>
+      {/* Banner (responsivo sem faixa branca no mobile) */}
+      <section aria-label="Banner" className="relative">
+        <div className="relative mx-auto max-w-7xl sm:mt-8 md:mt-20">
+          <div className="relative h-52 sm:h-64 md:h-72 lg:h-80">
+            <Image
+              src={bImage}
+              alt={bTitle}
+              fill
+              className="object-cover object-[50%_30%]"
+              sizes="100vw"
+              priority
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+            <div className="absolute inset-x-4 bottom-4 sm:inset-x-6 sm:bottom-6 md:inset-x-8">
+              <h1 className="text-white font-extrabold tracking-tight text-xl sm:text-2xl md:text-3xl">
+                {bTitle}
+              </h1>
+              <p className="mt-1 text-white/90 text-xs sm:text-sm md:text-base max-w-[65ch]">
+                {bDesc}
+              </p>
             </div>
           </div>
         </div>
@@ -293,48 +282,48 @@ export default function LatestListPage() {
           {/* Grid de cards */}
           <div className="md:col-span-3">
             {tipsLoading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {Array.from({ length: 12 }).map((_, i) => (
-                  <div key={i} className="border border-gray-200 bg-white overflow-hidden animate-pulse">
-                    <div className="aspect-[16/10] bg-gray-200" />
-                    <div className="p-3 space-y-2">
-                      <div className="h-3 w-24 bg-gray-200" />
-                      <div className="h-4 w-3/4 bg-gray-200" />
-                      <div className="h-3 w-2/3 bg-gray-200" />
-                    </div>
-                  </div>
-                ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Array.from({ length: 12 }).map((_, i) => <CardSkeleton key={i} />)}
+              </div>
+            ) : visible.length === 0 ? (
+              <div className="rounded-md border border-white/10 p-6 text-white/80">
+                Nada por aqui ainda.
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {visible.map((tip, i) => {
-                  const isHighlight = highlightId && String(tip.id) === highlightId;
-                  const articleHref = tip.href || `/latest/${params.slug}/${tip.id}-${toSlug(tip.title)}`;
+                {visible.map((tip) => {
+                  const computedSlug = slug === 'todos' ? 'futebol' : params.slug; // fallback neutro para "todos"
+                  const articleHref = tip.href || `/latest/${computedSlug}/${tip.id}-${toSlug(tip.title)}`;
 
                   return (
                     <Link
                       key={String(tip.id)}
                       href={articleHref}
-                      className={[
-                        'group block rounded-md overflow-hidden bg-white hover:shadow-md transition relative',
-                        isHighlight ? 'border ring-2 ring-indigo-300' : '',
-                      ].join(' ')}
+                      className="group block rounded-md overflow-hidden bg-white hover:shadow-md transition relative"
                     >
                       <div className="relative aspect-[16/15] overflow-hidden">
-                        <Image
-                          src={tip.image || forcedImage}
-                          alt={tip.title || forcedTitle(i)}
-                          fill
-                          sizes="(min-width:1024px) 33vw, (min-width:640px) 50vw, 100vw"
-                          className="object-cover transition-transform group-hover:scale-105"
-                        />
+                        {tip.image ? (
+                          <Image
+                            src={tip.image}
+                            alt={tip.title || ''}
+                            fill
+                            sizes="(min-width:1024px) 33vw, (min-width:640px) 50vw, 100vw"
+                            className="object-cover transition-transform group-hover:scale-105"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-black/20" />
+                        )}
                         <div className="pointer-events-none absolute bottom-0 left-0 w-full bg-black/70 backdrop-blur-sm text-white p-2">
-                          <h2 className="font-bold text-sm md:text-base line-clamp-2">
-                            {tip.title || forcedTitle(i)}
-                          </h2>
-                          <p className="text-xs md:text-sm">
-                            {cfg.cardSub}
-                          </p>
+                          {tip.title && (
+                            <h2 className="font-bold text-sm md:text-base line-clamp-2">
+                              {tip.title}
+                            </h2>
+                          )}
+                          {tip.createdAt && (
+                            <p className="text-[11px] opacity-80 mt-0.5">
+                              {tip.createdAt}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </Link>
@@ -348,17 +337,17 @@ export default function LatestListPage() {
           <aside className="md:col-span-1">
             <div className="sticky top-24 space-y-4">
               <div className="overflow-hidden h-full">
-                <div className="px-3 py-2 border-b border-[#ED4F00] text-xl font-bold">TIPS {cfg.name}</div>
+                <div className="px-3 py-2 border-b border-[#ED4F00] text-xl font-bold">TIPS {name}</div>
                 {gamesLoading ? (
                   <div className="p-3 space-y-1 animate-pulse">
-                    {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-12 bg-gray-200 rounded" />)}
+                    {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-12 bg-white/10 rounded" />)}
                   </div>
                 ) : (
                   <div className="overflow-y-auto divide-y divide-[#ED4F00]">
                     {gamesList.slice(0, 3).map((g) => (
                       <div key={g.id} className="p-0">
-                        <div className='flex gap-28 mt-4 mb-3'>
-                          <p className='ml-3'>.{cfg.name}</p>
+                        <div className="flex gap-28 mt-4 mb-3">
+                          <p className="ml-3">.{name}</p>
                           <p>{g.startAt}</p>
                         </div>
                         <div className="flex items-center gap-14 mb-3 ml-6">
@@ -366,17 +355,17 @@ export default function LatestListPage() {
                           <span className="opacity-70">vs</span>
                           <p className="text-[20px] font-semibold text-[#ED4F00]">{g.away}</p>
                         </div>
-                        <div className='flex items-center'>
+                        <div className="flex items-center">
                           <span className="mr-2">💡 </span>
                           <p className="mr-2">Dica:</p>
-                          <p> Vitória do {g.home}</p>
+                          <p>Vitória do {g.home}</p>
                         </div>
-                        <div className='flex items-center'>
+                        <div className="flex items-center">
                           <span className="mr-2">➕ </span>
                           <p className="mr-2">Odd:</p>
-                          <p className='text-[#ED4F00] font-bold'>{g.odds?.H ?? 2.00}</p>
+                          <p className="text-[#ED4F00] font-bold">{g.odds?.H ?? 2.00}</p>
                         </div>
-                        <div className='flex items-center mb-9'>
+                        <div className="flex items-center mb-9">
                           <span className="mr-2">🧑‍💼 </span>
                           <p className="mr-2">Hoje! Tipster: Comunidade</p>
                         </div>
