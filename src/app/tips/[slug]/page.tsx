@@ -33,8 +33,14 @@ type TipItem = {
 };
 
 /* ---------- Endpoints & Fallbacks ---------- */
-const WP_TIPS_ENDPOINT = '/api/wp/tips/subs';
-const WP_TIPS_FALLBACK = '/api/wp/posts?type=tip&status=publish';
+/**
+ * IMPORTANTE:
+ * - WP_TIPS_ENDPOINT agora usa a tua rota interna `/api/wp/tips`
+ * - O sport é passado por querystring lá no `loadTips()`
+ * - Mantive um fallback que cai nos teus mocks se algo falhar
+ */
+const WP_TIPS_ENDPOINT_BASE = '/api/wp/tips';
+const WP_TIPS_FALLBACK = ''; // deixamos vazio para forçar o uso do mock quando falhar
 
 /* ---------- Cards (fallback) ---------- */
 const FALLBACK_TIPS: TipItem[] = Array.from({ length: 12 }, (_, i) => ({
@@ -150,18 +156,50 @@ export default function SportContent() {
   const loadTips = useCallback(async () => {
     try {
       setTipsLoading(true);
-      let json: unknown;
+
+      // 1) chama a tua API interna /api/wp/tips?sport={slug}&per_page=12
+      let list: TipItem[] = [];
       try {
-        json = await fetchJson(WP_TIPS_ENDPOINT);
+        const base = new URL(WP_TIPS_ENDPOINT_BASE, window.location.origin);
+        base.searchParams.set('sport', slug);
+        base.searchParams.set('per_page', '12');
+        base.searchParams.set('_', String(Date.now())); // cache-buster
+
+        const json = (await fetchJson(base.toString())) as
+          | { items?: any[] }
+          | undefined;
+
+        const items = Array.isArray(json?.items) ? json!.items : [];
+
+        // 2) mapeia cada item do WP para o teu TipItem (preenche "image", etc.)
+        list = items.map((p: any): TipItem => ({
+          id: p?.id,
+          title: p?.title ?? '',
+          sport: p?.sport ?? slug, // se vier vazio, usa o slug da página
+          league: p?.league ?? undefined, // WP pode não ter; deixamos opcional
+          teams: p?.teams ?? undefined,
+          pick: p?.pick ?? undefined,
+          odds: p?.odds ?? undefined,
+          author: p?.author ?? undefined,
+          image: p?.cover ?? undefined, // <- tua prop "image" preenchida com "cover" do WP
+          createdAt: p?.createdAt ?? undefined,
+        }));
       } catch {
-        json = await fetchJson(WP_TIPS_FALLBACK);
+        // 3) fallback opcional (se definires algum endpoint alternativo)
+        if (WP_TIPS_FALLBACK) {
+          try {
+            const alt = await fetchJson(WP_TIPS_FALLBACK);
+            const arr = Array.isArray((alt as any)?.data)
+              ? ((alt as any).data as TipItem[])
+              : (alt as TipItem[]);
+            list = Array.isArray(arr) ? arr : [];
+          } catch {
+            // ignora
+          }
+        }
       }
 
-      const j = json as { data?: unknown } | TipItem[] | undefined;
-      let list: TipItem[] = Array.isArray(j && (j as { data?: unknown }).data)
-        ? ((j as { data: unknown[] }).data as TipItem[])
-        : ((j as TipItem[]) ?? []);
-
+      // 4) se ainda vazio, usa os mocks
       list = Array.isArray(list) && list.length ? list : FALLBACK_TIPS;
 
       // move highlight para o topo (se existir)
@@ -177,7 +215,7 @@ export default function SportContent() {
     } finally {
       setTipsLoading(false);
     }
-  }, [highlightId]);
+  }, [highlightId, slug]);
 
   useEffect(() => {
     loadTips();

@@ -57,11 +57,13 @@ export default function TipsDiaCard({ tip, className }: Props) {
 
         {/* Ver mais da categoria */}
         <Link
-          href={tip.categoryLink || '/tips'}
-          className="inline-flex items-center gap-2 bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500/60 rounded"
+          href={tip.hrefPost}
+          className="inline-flex items-center gap-2 text-orange-500 hover:text-orange-400 font-semibold transition"
         >
           Ver mais
+          <span className="text-2xl leading-none">›</span>
         </Link>
+
       </CardFooter>
     </Card>
   )

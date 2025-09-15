@@ -1,20 +1,26 @@
+// app/latest/[slug]/[article]/page.tsx
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { FaFacebookF,  FaInstagram,  FaYoutube,  FaDiscord,} from 'react-icons/fa';
-/* ========================
-   Tipos e fallbacks
-======================== */
-type NewsPost = {
+import { headers } from "next/headers";
+import { FaFacebookF, FaInstagram, FaYoutube, FaDiscord } from "react-icons/fa";
+
+/* ========= Tipos ========= */
+type NewsDetail = {
   id: string | number;
   title: string;
-  slug: string;
-  cover?: string;
-  content?: string;   // HTML
-  createdAt?: string;
+  date?: string;
   author?: string;
-  category?: string;
+  cover?: string | null;
+  contentHtml?: string;
   tags?: string[];
+};
+
+type NewsCardFromList = {
+  id: string | number;
+  titulo: string;
+  image?: string | null;
+  data?: string;
 };
 
 type TipSide = {
@@ -23,75 +29,20 @@ type TipSide = {
   away: string;
   league?: string;
   startAt?: string;
-  oddH?: number; // odd principal (casa) no seu fallback
+  oddH?: number;
 };
 
-const POST_TYPE = "latest";
-
-const FALLBACK_POST: NewsPost = {
-  id: "0",
-  title: "Como funcionam os contratos publicitários dos jogadores de futebol",
-  slug: "contratos-publicitarios-jogadores",
-  cover: "/B_futebol.png",
-  content: `
-    <p><strong>Lorem ipsum</strong> dolor sit amet, consectetur adipiscing elit. 
-    Integer in augue vel odio aliquam bibendum. Morbi vitae posuere lacus. 
-    Nullam vulputate, arcu ac dapibus ultrices, nisl risus finibus nisl, 
-    vitae ullamcorper arcu mi at nibh.</p>
-
-    <p>Praesent dignissim, ante a interdum congue, lacus eros feugiat justo, 
-    at pretium metus purus id velit. Suspendisse potenti. Curabitur 
-    <em>fringilla</em> lobortis nunc, vitae luctus lectus varius non. Fusce 
-    interdum, magna et luctus mattis, ex massa vulputate sapien, id pharetra 
-    ex augue nec risus.</p>
-
-    <h2>Subtítulo de seção do artigo</h2>
-    <p>Phasellus sed urna id orci faucibus luctus. Duis nec gravida dui. 
-    Pellentesque non libero sit amet augue placerat laoreet. Aenean iaculis 
-    efficitur lectus, eu fermentum turpis scelerisque id.</p>
-
-    <ul>
-      <li>Item de lista 1 com um pequeno detalhe;</li>
-      <li>Item de lista 2 explicando um ponto relevante;</li>
-      <li>Item de lista 3 com uma observação final.</li>
-    </ul>
-
-    <blockquote>
-      "Citação de exemplo para enriquecer o layout e a leitura do conteúdo."
-    </blockquote>
-
-    <p>Donec dictum, est a tempor ullamcorper, lectus nulla ornare sem, 
-    vitae gravida odio risus non augue. Vestibulum ante ipsum primis in 
-    faucibus orci luctus et ultrices posuere cubilia curae; Integer 
-    consequat sapien eget ipsum ultricies, vel maximus augue pulvinar.</p>
-  `,
-  createdAt: "Hoje",
-  author: "Redação TipFans",
-  tags: ["Futebol", "Liga dos Campeões"],
-};
-
-const FALLBACK_TIPS: TipSide[] = [
-  { id: "t1", home: "Nice",  away: "Benfica", league: "Futebol", startAt: "Hoje 20:45", oddH: 2.05 },
-  { id: "t2", home: "PSG",   away: "Lyon",   league: "Futebol", startAt: "Amanhã 20:00", oddH: 1.70 },
-  { id: "t3", home: "Inter", away: "Milan",  league: "Futebol", startAt: "Dom 19:45",   oddH: 2.30 },
-];
-
-/* ========================
-   Fetch helpers (SSR)
-======================== */
-async function api<T>(path: string, fallback: T): Promise<T> {
-  try {
-    const res = await fetch(path, { cache: "no-store" });
-    if (!res.ok) return fallback;
-    const j = await res.json();
-    const data = Array.isArray(j?.data) ? j.data : j?.data || j;
-    return (data ?? fallback) as T;
-  } catch {
-    return fallback;
-  }
+/* ========= Utils ========= */
+function toSlug(s: string) {
+  return (s || "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
 }
 
-// Aceita "123-meu-artigo" ou "meu-artigo"
+// Aceita "123-meu-slug" ou "meu-slug"
 function splitIdAndSlug(articleParam: string) {
   const [maybeId, ...rest] = (articleParam || "").split("-");
   const isId = /^\d+$/.test(maybeId);
@@ -101,46 +52,116 @@ function splitIdAndSlug(articleParam: string) {
   };
 }
 
-async function getPost(category: string, articleParam: string): Promise<NewsPost> {
-  const { id, slug } = splitIdAndSlug(articleParam);
-  const qs = id ? `id=${id}&category=${category}` : `slug=${slug}&category=${category}`;
-  const url = `/api/wp/posts?type=${POST_TYPE}&${qs}`;
-  const list = await api<NewsPost[]>(url, []);
-  return list[0] ?? FALLBACK_POST;
+// URL absoluta (Next 15)
+async function abs(path: string) {
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? "http";
+  return `${proto}://${host}${path}`;
 }
 
-async function getRelated(category: string, currentId?: string | number): Promise<NewsPost[]> {
-  const url = `/api/wp/posts?type=${POST_TYPE}&category=${category}&limit=4${currentId ? `&exclude=${currentId}` : ""}`;
-  const list = await api<NewsPost[]>(url, []);
-  if (list.length) return list.slice(0, 4);
-  // fallback simples
-  return [
-    { ...FALLBACK_POST, id: "r1", slug: "rel1", title: "Lesão e impacto no elenco",       cover: "/noticia1.jpg" },
-    { ...FALLBACK_POST, id: "r2", slug: "rel2", title: "Jovens talentos em ascensão",     cover: "/noticia2.jpg" },
-    { ...FALLBACK_POST, id: "r3", slug: "rel3", title: "Mercado de transferências",       cover: "/noticia3.jpg" },
-    { ...FALLBACK_POST, id: "r4", slug: "rel4", title: "Como funciona o fair-play",       cover: "/noticia1.jpg" },
-  ];
+async function fetchJson<T>(url: string, fallback: T): Promise<T> {
+  try {
+    const r = await fetch(url, { cache: "no-store" });
+    if (!r.ok) return fallback;
+    const ct = r.headers.get("content-type") || "";
+    if (!ct.includes("application/json")) return fallback;
+    return (await r.json()) as T;
+  } catch {
+    return fallback;
+  }
 }
+
+/* ========= Data: artigo ========= */
+async function fetchDetailById(id: string | number): Promise<NewsDetail | null> {
+  const url = await abs(`/api/wp/news-item?id=${encodeURIComponent(String(id))}`);
+  const data = await fetchJson<any>(url, null as any);
+  if (!data) return null;
+  return {
+    id: data.id ?? id,
+    title: data.title ?? "",
+    date: data.date ?? data.createdAt ?? "",
+    author: data.author ?? "",
+    cover: data.cover ?? null,
+    contentHtml: data.contentHtml ?? "",
+    tags: Array.isArray(data?.tags) ? data.tags : undefined,
+  };
+}
+
+async function fetchDetailBySearch(category: string, titleSlug: string): Promise<NewsDetail | null> {
+  const listUrl = await abs(
+    `/api/wp/news?sport=${encodeURIComponent(category)}&per_page=1&search=${encodeURIComponent(titleSlug)}`
+  );
+  const list = await fetchJson<any>(listUrl, { items: [] });
+  const first: NewsCardFromList | undefined = Array.isArray(list?.items) ? list.items[0] : undefined;
+  if (!first?.id) return null;
+  return fetchDetailById(first.id);
+}
+
+async function getPost(category: string, articleParam: string): Promise<NewsDetail> {
+  const { id, slug } = splitIdAndSlug(articleParam);
+
+  if (id) {
+    const detail = await fetchDetailById(id);
+    if (detail) return detail;
+  }
+
+  const detail = await fetchDetailBySearch(category, slug);
+  if (detail) return detail;
+
+  return {
+    id: "0",
+    title: "Artigo não encontrado",
+    date: "",
+    author: "",
+    cover: null,
+    contentHtml: "<p>Não conseguimos carregar este conteúdo.</p>",
+    tags: ["Futebol"],
+  };
+}
+
+/* ========= Data: relacionados ========= */
+async function getRelated(category: string, excludeId?: string | number) {
+  const url = await abs(`/api/wp/news?sport=${encodeURIComponent(category)}&per_page=4`);
+  const list = await fetchJson<any>(url, { items: [] });
+  const items: NewsCardFromList[] = Array.isArray(list?.items) ? list.items : [];
+  return items
+    .filter((p) => String(p.id) !== String(excludeId ?? ""))
+    .slice(0, 4)
+    .map((p) => ({
+      id: p.id,
+      title: p.titulo ?? "",
+      image: p.image ?? null,
+      date: p.data ?? "",
+    }));
+}
+
+/* ========= Data: sidebar TIPS ========= */
+const FALLBACK_TIPS: TipSide[] = [
+  { id: "t1", home: "Nice",  away: "Benfica", league: "Futebol", startAt: "Hoje 20:45", oddH: 2.05 },
+  { id: "t2", home: "PSG",   away: "Lyon",   league: "Futebol", startAt: "Amanhã 20:00", oddH: 1.70 },
+  { id: "t3", home: "Inter", away: "Milan",  league: "Futebol", startAt: "Dom 19:45",   oddH: 2.30 },
+];
 
 async function getSidebarTips(category: string): Promise<TipSide[]> {
-  const url = `/api/wp/tips/subs?sport=${category}&limit=3`;
-  const list = await api<TipSide[]>(url, []);
+  const url = await abs(`/api/wp/tips/subs?sport=${encodeURIComponent(category)}&limit=3`);
+  const list = await fetchJson<TipSide[]>(url, []);
   return list.length ? list.slice(0, 3) : FALLBACK_TIPS;
 }
 
-/* ========================
-   Metadata
-======================== */
+/* ========= Metadata ========= */
 export async function generateMetadata(
-  { params }: { params: { slug: string; article: string } }
+  { params }: { params: Promise<{ slug: string; article: string }> }
 ): Promise<Metadata> {
-  const post = await getPost(params.slug, params.article);
-  const desc = (post?.content || "").replace(/<[^>]+>/g, "").slice(0, 160);
+  const { slug, article } = await params;
+  const post = await getPost(slug, article);
+  const desc = (post?.contentHtml || "").replace(/<[^>]+>/g, "").slice(0, 160);
+
   return {
-    title: post?.title ?? "Notícia",
+    title: post?.title || "Notícia",
     description: desc,
     openGraph: {
-      title: post?.title,
+      title: post?.title || "Notícia",
       description: desc,
       images: post?.cover ? [post.cover] : [],
       type: "article",
@@ -148,9 +169,7 @@ export async function generateMetadata(
   };
 }
 
-/* ========================
-   Página
-======================== */
+/* ========= Página ========= */
 export default async function LatestArticlePage({
   params,
 }: {
@@ -159,10 +178,9 @@ export default async function LatestArticlePage({
   const { slug, article } = params;
 
   const post    = await getPost(slug, article);
-  const related = await getRelated(slug, post?.id);
-  const tips    = await getSidebarTips(slug);   // ← usamos ISSO no sidebar
+  const related = await getRelated(slug, post.id);
+  const tips    = await getSidebarTips(slug);
 
-  // label simpático para o cabeçalho do sidebar
   const SPORT_LABELS: Record<string, string> = {
     futebol: "Futebol",
     basquete: "Basquete",
@@ -171,18 +189,25 @@ export default async function LatestArticlePage({
   };
   const sportLabel = SPORT_LABELS[slug] ?? slug;
 
+  // para Prev/Next (usa os 2 primeiros relacionados)
+  const prev = related[0];
+  const next = related[1];
+
   return (
     <main className="bg-[#1E1E1E] text-white">
-      <div className="mx-auto max-w-7xl px-4 py-8 grid gap-6 md:grid-cols-4">
+      <div className="mx-auto max-w-7xl px-4 py-32 grid gap-6 md:grid-cols-4">
         {/* ====== Conteúdo principal ====== */}
         <article className="md:col-span-3">
+          {/* TÍTULO */}
           <h1 className="text-2xl md:text-3xl font-extrabold leading-tight">
             {post.title}
           </h1>
 
           {/* Byline */}
           <p className="mt-2 text-sm text-white/70">
-            {post.author ? `Por ${post.author} • ` : ""}{post.createdAt ?? ""}
+            {post.author ? `Por ${post.author}` : ""}
+            {post.author && post.date ? " • " : ""}
+            {post.date ?? ""}
           </p>
 
           {/* Hero */}
@@ -202,47 +227,59 @@ export default async function LatestArticlePage({
           {/* Legenda opcional */}
           <p className="mt-2 text-xs text-white/60">Legenda / Crédito da foto</p>
 
-          {/* Corpo do post (agora com lorem do fallback) */}
+          {/* Corpo do post */}
           <div
             className="mt-4 space-y-4 leading-relaxed text-[15px]"
-            dangerouslySetInnerHTML={{ __html: post.content ?? "" }}
+            dangerouslySetInnerHTML={{ __html: post.contentHtml ?? "" }}
           />
 
           {/* Linha divisória */}
-          <hr className="my-6 border-white/50" />
+          <hr className="my-5 border-white/40" />
 
-          {/* Share simples (agora com “ícones” visuais sem libs) */}
-      
-            <span className="">Partilhar este artigo:</span>
-            <div className="hidden md:flex items-center gap-4 text-white text-lg mr-56 mt-2">
-                <FaDiscord className="cursor-pointer hover:scale-110 transition" />
-                <FaFacebookF className="cursor-pointer hover:scale-110 transition" />
-                <FaInstagram className="cursor-pointer hover:scale-110 transition" />
-                <FaYoutube className="cursor-pointer hover:scale-110 transition" />
+          {/* SHARE */}
+          <div className="mb-4">
+            <span className="text-sm">Partilhar este artigo:</span>
+            <div className="mt-2 flex items-center gap-2">
+              {[
+                { Icon: FaDiscord,   label: "Discord"   },
+                { Icon: FaFacebookF, label: "Facebook"  },
+                { Icon: FaInstagram, label: "Instagram" },
+                { Icon: FaYoutube,   label: "YouTube"   },
+              ].map(({ Icon, label }) => (
+                <button
+                  key={label}
+                  aria-label={label}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded bg-white text-black hover:opacity-90 transition"
+                >
+                  <Icon className="text-[14px]" />
+                </button>
+              ))}
             </div>
-        
-
+          </div>
 
           {/* Também pode interessar */}
-          <section className="mt-8">
-            <h2 className="text-xl font-bold mb-7">Artigos que também lhe pode interessar</h2>
+          <section className="mt-6">
+            <h2 className="text-xl font-bold mb-4">Artigos que também lhe podem interessar</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {related.map((r) => (
                 <Link
-                  key={r.id}
-                  href={`/latest/${slug}/${r.slug || r.id}`}
+                  key={String(r.id)}
+                  href={`/latest/${slug}/${r.id}-${toSlug(r.title)}`}
                   className="group rounded-lg overflow-hidden bg-[#1B1F2A] ring-1 ring-white/10 hover:ring-white/20"
                 >
-                  <div className="relative aspect-[16/10]">
-                    <Image
-                      src={r.cover || "/rel1.jpg"}
-                      alt={r.title}
-                      fill
-                      sizes="(min-width:768px) 25vw, 50vw"
-                      className="object-cover transition-transform duration-300 group-hover:scale-105"
-                    />
+                  <div className="relative aspect-[16/10] bg-black/20">
+                    {r.image && (
+                      <Image
+                        src={r.image}
+                        alt={r.title}
+                        fill
+                        sizes="(min-width:768px) 25vw, 50vw"
+                        className="object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                    )}
                   </div>
                   <div className="p-2">
+                    <p className="text-[11px] text-white/60">{r.date ?? ""}</p>
                     <h3 className="text-sm font-semibold line-clamp-2">{r.title}</h3>
                   </div>
                 </Link>
@@ -250,49 +287,45 @@ export default async function LatestArticlePage({
             </div>
           </section>
 
-         {/* Tags */}
-        <section className="mt-20 border-b border-white/50 pb-4">
-        <h1 className="mt-20 pb-4 text-xl font-bold">Tags</h1>
-        <div className="flex flex-wrap gap-2">
-            
-            {(post.tags?.length ? post.tags : ["Futebol", "Liga dos Campeões"]).map((t) => (
-            <span key={t} className="px-2 py-1 text-xs rounded bg-white text-black ring-1 font-bold ring-white/10">
-                {t}
-            </span>
-            ))}
-        </div>
-        </section>
+          {/* Tags */}
+          <section className="mt-8 border-b border-white/40 pb-4">
+            <h3 className="text-xl font-bold mb-3">Tags</h3>
+            <div className="flex flex-wrap gap-2">
+              {(post.tags?.length ? post.tags : ["Futebol", "Liga dos Campeões"]).map((t) => (
+                <span
+                  key={t}
+                  className="px-2 py-1 text-xs rounded bg-white text-black ring-1 font-bold ring-white/10"
+                >
+                  {t}
+                </span>
+              ))}
+            </div>
+          </section>
 
- {/* Prev / Next simples */}
-          <nav className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-4 mb-16">
+          {/* Prev / Next */}
+          <nav className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
             <Link
-              href={`/latest/${slug}/${related[0]?.slug || related[0]?.id || "#"}`}
+              href={prev ? `/latest/${slug}/${prev.id}-${toSlug(prev.title)}` : "#"}
               className="p-3"
             >
               <span className="text-lg text-[#ED4F00] font-bold">
-                <span className="mr-2 mb-50 text-lg text-[#ED4F00]">{"<"}</span>
-
-                 Anterior</span>
-              <p className="font-semibold line-clamp-2">{related[0]?.title || "Artigo anterior"}</p>
+                <span className="mr-2">{`<`}</span>Anterior
+              </span>
+              <p className="font-semibold line-clamp-2">{prev?.title ?? "Artigo anterior"}</p>
             </Link>
             <Link
-              href={`/latest/${slug}/${related[1]?.slug || related[1]?.id || "#"}`}
+              href={next ? `/latest/${slug}/${next.id}-${toSlug(next.title)}` : "#"}
               className="p-3 text-right"
-            > 
-
+            >
               <span className="text-lg text-[#ED4F00] font-bold">
-                Próximo
-                <span className="ml-2 mb-50 text-lg text-[#ED4F00]">{">"}</span>
-                </span>
-              <p className="font-semibold line-clamp-2">{related[1]?.title || "Próximo artigo"}</p>
+                Próximo<span className="ml-2">{`>`}</span>
+              </span>
+              <p className="font-semibold line-clamp-2">{next?.title ?? "Próximo artigo"}</p>
             </Link>
           </nav>
 
-          {/* Linha divisória */}
-          <hr className="my-6 border-white/50" />
-
-          {/* Comentários (estático) */}
-          <section className="mt-8">
+          {/* Comentários */}
+          <section className="mt-4">
             <h3 className="text-lg font-bold mb-3">Deixe um comentário</h3>
             <form className="space-y-3">
               <input
@@ -304,57 +337,59 @@ export default async function LatestArticlePage({
                 placeholder="Comentário"
                 className="w-full rounded bg-black/30 px-3 py-2 text-sm outline-none ring-1 ring-white/10 min-h-[120px]"
               />
-              <button
-                type="button"
-                className="rounded bg-[#ED4F00] px-4 py-2 text-sm font-semibold hover:opacity-90"
-              >
-                Submeter comentário
-              </button>
-              <p>Para <Link href="/src/app/login" className="text-[#ED4F00]" >Iniciar sessão</Link> para submeter seu comentario.</p>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  className="rounded bg-[#ED4F00] px-4 py-2 text-sm font-semibold hover:opacity-90"
+                >
+                  Submeter comentário
+                </button>
+                <p className="text-sm text-white/70">
+                  Para <Link href="/src/app/login" className="text-[#ED4F00] underline">Iniciar sessão</Link> para submeter seu comentário.
+                </p>
+              </div>
             </form>
           </section>
         </article>
 
-        {/* ====== Sidebar (usa apenas `tips` + `slug`) ====== */}
+        {/* ====== Sidebar (TIPS) ====== */}
         <aside className="md:col-span-1">
-          <div className="sticky top-[332px] space-y-4">
-            {/* Caixa de TIPS */}
+          <div className="sticky top-24 space-y-4">
             <div className="overflow-hidden rounded-lg ring-white/10 bg-[#1E1E1E]">
               <div className="px-3 py-2 border-b border-[#ED4F00] flex items-center justify-between">
                 <span className="text-xl font-bold">TIPS {sportLabel}</span>
               </div>
 
-              <div className="divide-y divide-white/20 h-[700px]">
+              <div className="divide-y divide-white/20">
                 {tips.map((g) => (
-                  <div key={g.id} className="px-3 py-3">
-                    {/* liga + horário */}
-                    <div className="text-[11px] uppercase tracking-wide text-white flex items-center gap-40">
-                      <span><span className="opacity-60">•</span>{g.league ?? sportLabel}</span>
+                  <div key={String(g.id)} className="px-3 py-3">
+                    <div className="text-[11px] uppercase tracking-wide text-white flex items-center justify-between">
+                      <span><span className="opacity-60 mr-1">•</span>{g.league ?? sportLabel}</span>
                       {g.startAt && <span>{g.startAt}</span>}
                     </div>
 
-                    {/* confronto */}
-                    <div className="flex items-center gap-14 mb-3 ml-6 mt-3">
-                      <p className="text-[20px] font-semibold text-[#ED4F00]">{g.home}</p>
+                    <div className="flex items-center gap-3 justify-center my-3">
+                      <p className="text-[18px] font-semibold text-[#ED4F00]">{g.home}</p>
                       <span className="opacity-70">vs</span>
-                      <p className="text-[20px] font-semibold text-[#ED4F00]">{g.away}</p>
+                      <p className="text-[18px] font-semibold text-[#ED4F00]">{g.away}</p>
                     </div>
 
-                    <div className='flex items-center'>
-                      <span className="mr-2">💡 </span>
+                    <div className="flex items-center">
+                      <span className="mr-2">💡</span>
                       <p className="mr-2">Dica:</p>
                       <p>Vitória do {g.home}</p>
                     </div>
 
-                    {/* odd principal (H) */}
-                    <div className='flex items-center'>
-                      <span className="mr-2">➕ </span>
+                    <div className="flex items-center">
+                      <span className="mr-2">➕</span>
                       <p className="mr-2">Odd:</p>
-                      <p className='text-[#ED4F00] font-bold'>{typeof g.oddH === "number" ? g.oddH.toFixed(2) : "—"}</p>
+                      <p className="text-[#ED4F00] font-bold">
+                        {typeof g.oddH === "number" ? g.oddH.toFixed(2) : "—"}
+                      </p>
                     </div>
 
-                    <div className='flex items-center '>
-                      <span className="mr-2">🧑‍💼 </span>
+                    <div className="flex items-center">
+                      <span className="mr-2">🧑‍💼</span>
                       <p className="mr-2">Hoje! Tipster: Comunidade</p>
                     </div>
                   </div>
@@ -362,7 +397,7 @@ export default async function LatestArticlePage({
               </div>
             </div>
 
-            {/* PUB */}
+            {/* PUB placeholder */}
             <div className="relative w-full h-[700px] rounded-lg overflow-hidden ring-1 ring-white/10">
               <Image
                 src="/noticia2.jpg"
