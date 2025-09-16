@@ -7,6 +7,64 @@ import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { fetchHeroSlides, type HeroSlide } from '@/lib/fetchHeroSlides'
 
+type Sport = 'futebol' | 'basquete' | 'tenis' | 'esports'
+const SPORT_DEFAULT: Sport = 'futebol'
+
+/* === helpers p/ gerar /latest/{sport}/{id}-{slug} e nunca /tips === */
+function toSlug(s: string): string {
+  return (s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
+}
+
+function lastPathSlug(u: unknown): string {
+  if (typeof u !== 'string' || !u) return ''
+  try {
+    const path = u.startsWith('http') ? new URL(u).pathname : u
+    const parts = path.split('/').filter(Boolean)
+    return toSlug(parts.at(-1) || '')
+  } catch {
+    return ''
+  }
+}
+
+function buildNewsHref(s?: HeroSlide): string {
+  if (!s) return `/latest/${SPORT_DEFAULT}`
+
+  const anyS = s as any
+  const sport: string = anyS?.categorySlug || anyS?.sport || SPORT_DEFAULT
+
+  // 1) Se já vier um link /latest/... da API, usa-o.
+  const candidate = [anyS?.hrefPost, anyS?.href].find(
+    (h: unknown) => typeof h === 'string' && h.startsWith('/latest/')
+  )
+  if (candidate) return candidate as string
+
+  // 2) Caso contrário, monta /latest/{sport}/{id}-{slug}
+  const idLike =
+    anyS?.id ??
+    anyS?.postId ??
+    anyS?.wpId ??
+    ''
+
+  const slug =
+    anyS?.slug ||
+    anyS?.wpSlug ||
+    lastPathSlug(anyS?.link) ||
+    lastPathSlug(anyS?.wpLink) ||
+    lastPathSlug(anyS?.href) ||
+    toSlug(anyS?.title || anyS?.titulo || '')
+
+  const base = `/latest/${sport}/`
+  if (idLike && slug) return `${base}${encodeURIComponent(String(idLike))}-${encodeURIComponent(slug)}`
+  if (idLike) return `${base}${encodeURIComponent(String(idLike))}`
+  if (slug) return `${base}${encodeURIComponent(slug)}`
+  return `/latest/${sport}`
+}
+
 export default function Hero2() {
   const [slides, setSlides] = useState<HeroSlide[]>([])
   const [index, setIndex] = useState(0)
@@ -17,7 +75,7 @@ export default function Hero2() {
     let alive = true
     ;(async () => {
       try {
-        const data = await fetchHeroSlides(3) // garanta per_page=3/orderby=date/desc no util
+        const data = await fetchHeroSlides(3) // per_page=3&orderby=date&order=desc
         if (alive) setSlides(Array.isArray(data) ? data : [])
       } catch {
         if (alive) setSlides([])
@@ -35,7 +93,7 @@ export default function Hero2() {
 
   const active = useMemo(() => slides, [slides])
   const cur = active[index % Math.max(active.length, 1)]
-  const targetHref = cur?.href || '/tips/futebol'
+  const targetHref = buildNewsHref(cur)
 
   // Bullets (3 placeholders se ainda carregando)
   const bullets = active.length ? active : Array.from({ length: 3 })
@@ -99,6 +157,7 @@ export default function Hero2() {
                   <Link
                     href={targetHref}
                     className="mt-6 inline-block px-5 py-2 md:px-6 md:py-3 bg-[#ED4F00] text-white text-base sm:text-lg md:text-xl xl:text-2xl 2xl:text-3xl font-semibold rounded hover:opacity-90 transition"
+                    aria-label={`Saiba mais: ${cur?.title ?? 'Notícia'}`}
                   >
                     Saiba mais
                   </Link>

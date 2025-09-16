@@ -9,7 +9,8 @@ const ENV_CPT = (process.env.WP_HERO_CPT_SLUG || process.env.WP_TIPS_CPT_SLUG ||
 // Tentativas típicas para artigos/notícias + fallback "posts"
 const CANDIDATES = [ENV_CPT, "articles", "noticias", "news", "posts"].filter(Boolean);
 
-const stripHtml = (html: string) => (html || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+const stripHtml = (html: string) =>
+  (html || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 
 async function tryFetch(typeSlug: string, limit: number) {
   const url = `${WP_BASE}/wp-json/wp/v2/${typeSlug}?per_page=${limit}&_embed=1`;
@@ -35,23 +36,36 @@ function pickFeaturedImage(p: any): string {
   );
 }
 
+// Detecta o "sport" a partir das taxonomias (fallback: futebol)
+function detectSport(p: any): "futebol" | "basquete" | "tenis" | "esports" {
+  const terms = (p?._embedded?.["wp:term"] || []).flat() as any[];
+  const slugs = terms.map(t => String(t?.slug || "").toLowerCase());
+
+  if (slugs.some(s => ["basquete", "basket", "basketball"].includes(s))) return "basquete";
+  if (slugs.some(s => ["tenis", "ténis", "tennis"].includes(s))) return "tenis";
+  if (slugs.some(s => ["esports", "e-sports", "esport"].includes(s))) return "esports";
+  if (slugs.some(s => ["futebol", "football", "soccer"].includes(s))) return "futebol";
+
+  // se vier no próprio objeto:
+  const fromPost = String(p?.sport || p?.categorySlug || "").toLowerCase();
+  if (["futebol", "basquete", "tenis", "esports"].includes(fromPost)) return fromPost as any;
+
+  return "futebol";
+}
+
 export type HeroSlide = {
   title: string;
   description: string;
   image: string;
-  href: string;
+  href: string; // agora sempre /latest/{sport}/{id}-{slug} (ou fallback coerente)
 };
 
 export async function fetchHeroSlides(limit = 3): Promise<HeroSlide[]> {
   let posts: any[] | null = null;
-  let usedType = "";
 
   for (const type of CANDIDATES) {
     posts = await tryFetch(type, limit);
-    if (posts) {
-      usedType = type;
-      break;
-    }
+    if (posts) break;
   }
 
   if (!posts) {
@@ -65,12 +79,19 @@ export async function fetchHeroSlides(limit = 3): Promise<HeroSlide[]> {
     const description = stripHtml(rawDesc).slice(0, 160) + (rawDesc ? "…" : "");
     const image = pickFeaturedImage(p);
 
-    // 🔗 Caminho interno — mantive igual ao que você já usa em TipsDia:
-    // /tips/dicas/[slug]. Se seu Hero deve abrir /articles/[slug], troque aqui.
+    // >>> AQUI: tira /tips e adiciona /latest/{sport}/{id}-{slug}
+    const sport = detectSport(p);
+    const id = p?.id ?? "";
+    const slug = String(p?.slug || "");
+    // casos de segurança se faltar algo:
     const href =
-      usedType === "posts"
-        ? `/tips/dicas/${p.slug}`
-        : `/tips/dicas/${p.slug}`;
+      id && slug
+        ? `/latest/${sport}/${encodeURIComponent(String(id))}-${encodeURIComponent(slug)}`
+        : id
+        ? `/latest/${sport}/${encodeURIComponent(String(id))}`
+        : slug
+        ? `/latest/${sport}/${encodeURIComponent(slug)}`
+        : `/latest/${sport}`;
 
     return { title, description, image, href };
   });

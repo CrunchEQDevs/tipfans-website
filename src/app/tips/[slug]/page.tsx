@@ -68,7 +68,7 @@ const SPORT_CONFIG: Record<
 > = {
   futebol: {
     name: 'Futebol',
-    bannerTitle: 'PREVISÕES E DICAS DE APOSTA',
+    bannerTitle: 'PREVISÕES E DICAS DE APOSTA ',
     bannerDesc: 'Estudos e picks dos especialistas e da comunidade.',
     cardImage: '/futebol.png',
     cardSub: 'Liga PT',
@@ -263,8 +263,8 @@ export default function SportContent() {
   return (
     <main key={slug} className="bg-[#1E1E1E] text-white">
       {/* HERO */}
-      <div className="px-4">
-        <div className="overflow-hidden relative">
+      <div className="px-4 mt-24">
+        <div className="overflow-hidden relative ">
           <Image
             src="/DICAS.png"
             alt="Banner"

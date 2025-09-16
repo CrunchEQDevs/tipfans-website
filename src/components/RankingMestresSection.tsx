@@ -104,15 +104,15 @@ export default function RankingMestresSection() {
                 <li key={i} className="rounded-xl border border-white/10 bg-white/5 p-4">
                   <div className="flex items-start gap-4">
                     {/* avatar */}
-<div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-white/10">
-  <Image
-    src={m.avatar ?? '/user.png'}   // ← usa o avatar, senão cai no /user.png
-    alt={m.nome}
-    fill
-    className="object-cover"
-    sizes="64px"
-  />
-</div>
+                    <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-white/10">
+                    <Image
+                        src={m.avatar ?? '/user.png'}   // ← usa o avatar, senão cai no /user.png
+                        alt={m.nome}
+                        fill
+                        className="object-cover"
+                        sizes="64px"
+                    />
+                    </div>
 
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">

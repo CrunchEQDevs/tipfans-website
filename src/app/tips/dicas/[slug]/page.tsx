@@ -65,7 +65,7 @@ export type TipCard = {
 /* ===================== UI (Banner fixo) ===================== */
 function TitleBanner({ right }: { right?: string }) {
   return (
-    <div className="relative overflow-hidden border-b border-neutral-800 h-[250px]">
+    <div className="relative overflow-hidden border-b border-neutral-800 h-64 mt-24">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/banner_dicas.jpg"
