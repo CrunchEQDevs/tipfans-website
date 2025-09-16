@@ -28,31 +28,15 @@ type TipItem = {
   pick?: string;
   odds?: string | number;
   author?: string;
-  image?: string;
+  image?: string | null;
   createdAt?: string;
 };
 
-/* ---------- Endpoints & Fallbacks ---------- */
-/**
- * IMPORTANTE:
- * - WP_TIPS_ENDPOINT agora usa a tua rota interna `/api/wp/tips`
- * - O sport é passado por querystring lá no `loadTips()`
- * - Mantive um fallback que cai nos teus mocks se algo falhar
- */
+/* ---------- Endpoints ---------- */
 const WP_TIPS_ENDPOINT_BASE = '/api/wp/tips';
-const WP_TIPS_FALLBACK = ''; // deixamos vazio para forçar o uso do mock quando falhar
 
-/* ---------- Cards (fallback) ---------- */
-const FALLBACK_TIPS: TipItem[] = Array.from({ length: 12 }, (_, i) => ({
-  id: String(i + 1),
-  title: `Tip da comunidade #${i + 1}`,
-  sport: ['Futebol', 'Basquete', 'Ténis', 'eSports'][i % 4],
-  league: 'Liga PT',
-  teams: 'Casa vs Fora',
-  pick: i % 2 ? 'BTTS Sim' : 'Mais de 2.5',
-  odds: (1.65 + (i % 5) * 0.1).toFixed(2),
-  author: `User #${i + 1}`,
-}));
+/* ---------- SEM fallback fictício ---------- */
+const FALLBACK_TIPS: TipItem[] = [];
 
 /* ---------- Config por desporto ---------- */
 const SPORT_CONFIG: Record<
@@ -157,61 +141,105 @@ export default function SportContent() {
     try {
       setTipsLoading(true);
 
-      // 1) chama a tua API interna /api/wp/tips?sport={slug}&per_page=12
       let list: TipItem[] = [];
       try {
+        // ✅ chama a API interna já filtrando por desporto
         const base = new URL(WP_TIPS_ENDPOINT_BASE, window.location.origin);
         base.searchParams.set('sport', slug);
         base.searchParams.set('per_page', '12');
+        base.searchParams.set('orderby', 'date');
+        base.searchParams.set('order', 'desc');
         base.searchParams.set('_', String(Date.now())); // cache-buster
 
-        const json = (await fetchJson(base.toString())) as
-          | { items?: any[] }
-          | undefined;
+        const json = (await fetchJson(base.toString())) as { items?: any[] } | any[];
 
-        const items = Array.isArray(json?.items) ? json!.items : [];
+        const items: any[] = Array.isArray(json)
+          ? json
+          : Array.isArray((json as any)?.items)
+          ? (json as any).items
+          : [];
 
-        // 2) mapeia cada item do WP para o teu TipItem (preenche "image", etc.)
-        list = items.map((p: any): TipItem => ({
-          id: p?.id,
-          title: p?.title ?? '',
-          sport: p?.sport ?? slug, // se vier vazio, usa o slug da página
-          league: p?.league ?? undefined, // WP pode não ter; deixamos opcional
-          teams: p?.teams ?? undefined,
-          pick: p?.pick ?? undefined,
-          odds: p?.odds ?? undefined,
-          author: p?.author ?? undefined,
-          image: p?.cover ?? undefined, // <- tua prop "image" preenchida com "cover" do WP
-          createdAt: p?.createdAt ?? undefined,
-        }));
-      } catch {
-        // 3) fallback opcional (se definires algum endpoint alternativo)
-        if (WP_TIPS_FALLBACK) {
-          try {
-            const alt = await fetchJson(WP_TIPS_FALLBACK);
-            const arr = Array.isArray((alt as any)?.data)
-              ? ((alt as any).data as TipItem[])
-              : (alt as TipItem[]);
-            list = Array.isArray(arr) ? arr : [];
-          } catch {
-            // ignora
+        // garante só CPT tips
+        const onlyTips = items.filter((p: any) => {
+          const t = (p?.type || p?.post_type || 'tips').toString().toLowerCase();
+          return t.includes('tip');
+        });
+
+        // mapeia para TipItem
+        list = onlyTips.map((p: any): TipItem => {
+          // API já normalizada
+          if (p?.hrefPost || p?.cover || p?.sport) {
+            return {
+              id: p?.id,
+              title: p?.title ?? '',
+              sport: p?.sport ?? slug,
+              league: p?.league ?? undefined,
+              teams: p?.teams ?? undefined,
+              pick: p?.pick ?? undefined,
+              odds: p?.odds ?? undefined,
+              author: p?.author ?? undefined,
+              image: p?.cover ?? null,
+              createdAt: p?.createdAt ?? undefined,
+            };
           }
-        }
+
+          // WP cru
+          const acf = p?.acf || {};
+          const embedded = p?._embedded || {};
+          const media = embedded['wp:featuredmedia']?.[0];
+
+          const title = p?.title?.rendered ?? p?.title ?? '';
+          const cover =
+            media?.source_url ??
+            p?.yoast_head_json?.og_image?.[0]?.url ??
+            p?.jetpack_featured_media_url ??
+            null;
+
+          const sportInferred = p?.sport ?? acf?.sport ?? acf?.modalidade ?? slug;
+          const league = p?.league ?? acf?.league ?? acf?.liga ?? undefined;
+          const teams =
+            p?.teams ??
+            acf?.teams ??
+            (acf?.home && acf?.away ? `${acf.home} x ${acf.away}` : undefined);
+          const odds = p?.odds ?? acf?.odds ?? acf?.odd ?? undefined;
+          const author =
+            p?.author_name ??
+            p?.author ??
+            embedded?.author?.[0]?.name ??
+            undefined;
+
+          return {
+            id: p?.id,
+            title,
+            sport: sportInferred ?? slug,
+            league,
+            teams,
+            pick: p?.pick ?? acf?.pick ?? acf?.palpite ?? undefined,
+            odds,
+            author,
+            image: cover,
+            createdAt: p?.date ?? p?.date_gmt ?? undefined,
+          };
+        });
+      } catch {
+        // sem fallback fictício
       }
 
-      // 4) se ainda vazio, usa os mocks
-      list = Array.isArray(list) && list.length ? list : FALLBACK_TIPS;
+      // lista já vem filtrada pelo WP; ainda assim normalizamos
+      let filtered = (Array.isArray(list) ? list : []).filter(
+        (it) => normalizeTipSport(it.sport) === slug
+      );
 
-      // move highlight para o topo (se existir)
+      // highlight para o topo (se houver)
       if (highlightId) {
-        const idx = list.findIndex((it) => String(it.id) === highlightId);
+        const idx = filtered.findIndex((it) => String(it.id) === highlightId);
         if (idx > -1) {
-          const [h] = list.splice(idx, 1);
-          list = [h, ...list];
+          const [h] = filtered.splice(idx, 1);
+          filtered = [h, ...filtered];
         }
       }
 
-      setTips(list.slice(0, 12));
+      setTips(filtered.slice(0, 12));
     } finally {
       setTipsLoading(false);
     }
@@ -236,7 +264,6 @@ export default function SportContent() {
     };
   }, [loadTips]);
 
-  // lista visível (misturada)
   const visible = useMemo(() => tips.slice(0, 12), [tips]);
 
   // destaques = 2 primeiros
@@ -245,7 +272,6 @@ export default function SportContent() {
     [visible]
   );
 
-  // (opcional) select para navegar entre slugs
   const sportOptions: { value: keyof typeof SPORT_CONFIG; label: string }[] = [
     { value: 'futebol', label: 'Futebol' },
     { value: 'tenis', label: 'Ténis' },
@@ -253,7 +279,6 @@ export default function SportContent() {
     { value: 'esports', label: 'eSports' },
   ];
 
-  // handler do Select (apenas muda a rota)
   const onChangeSportShadcn = (value: string) => {
     const next = value as keyof typeof SPORT_CONFIG;
     const qs = search?.toString();
@@ -301,9 +326,7 @@ export default function SportContent() {
                         >
                           <SelectValue placeholder="Escolher desporto" />
                         </SelectTrigger>
-                        <SelectContent
-                          className="bg-transparent border-0 shadow-none text-[#ED4F00]"
-                        >
+                        <SelectContent className="bg-transparent border-0 shadow-none text-[#ED4F00]">
                           {sportOptions.map((opt) => (
                             <SelectItem
                               key={opt.value}
@@ -332,7 +355,7 @@ export default function SportContent() {
         </div>
       </div>
 
-      {/* Destaques (misturados por desporto de cada tip) */}
+      {/* Destaques */}
       <div className="mx-auto max-w-7xl px-4">
         <div className="mt-6 rounded-xl bg-[#1d2029] p-3">
           {tipsLoading ? (
@@ -368,7 +391,7 @@ export default function SportContent() {
                   >
                     <div className="relative aspect-[16/8]">
                       <Image
-                        src={tipCfg.cardImage} // imagem do desporto da tip
+                        src={tip.image ?? tipCfg.cardImage}
                         alt={tip.title || `${tipCfg.cardTitleBase} #${i + 1}`}
                         fill
                         className="object-cover transition-transform duration-300 group-hover:scale-105"
@@ -397,7 +420,7 @@ export default function SportContent() {
         </div>
       </div>
 
-      {/* GRID (misturada) */}
+      {/* GRID */}
       <section className="mx-auto max-w-7xl px-3 py-6">
         {tipsLoading ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
@@ -414,6 +437,10 @@ export default function SportContent() {
                 </div>
               </div>
             ))}
+          </div>
+        ) : visible.length === 0 ? (
+          <div className="rounded-xl bg-[#1B1F2A] p-6 text-center text-white/80 ring-1 ring-white/10">
+            Ainda não há tips de <span className="font-semibold">{cfg.name}</span>.
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
@@ -432,7 +459,7 @@ export default function SportContent() {
                 >
                   <div className="relative aspect-[16/10]">
                     <Image
-                      src={tipCfg.cardImage}
+                      src={tip.image ?? tipCfg.cardImage}
                       alt={tip.title || `${tipCfg.cardTitleBase} #${i + 1}`}
                       fill
                       className="object-cover transition-transform duration-300 group-hover:scale-105"
@@ -456,7 +483,7 @@ export default function SportContent() {
           </div>
         )}
 
-        {/* paginação (mock) */}
+        {/* paginação mock */}
         <div className="mt-6 flex items-center justify-between">
           <nav className="flex items-center gap-2 left">
             <button className="rounded-md px-3 py-1.5 text-sm ring-1 ring-white/10 hover:bg-white/5">
