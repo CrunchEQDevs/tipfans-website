@@ -1,4 +1,3 @@
-// app/api/wp/tips/route.ts
 import { NextResponse } from 'next/server';
 
 const WP_BASE = process.env.WP_BASE_URL ?? '';
@@ -42,7 +41,6 @@ function mapPost(p: any) {
     p?.jetpack_featured_media_url ??
     null;
 
-  // ✅ agora mandamos excerpt (texto simples)
   const excerptHtml = p?.excerpt?.rendered ?? '';
   const excerpt = stripTags(excerptHtml);
 
@@ -50,6 +48,7 @@ function mapPost(p: any) {
     ? p._embedded['wp:term'].flat()
     : [];
   const catSlugs: string[] = termsFlat.map((t: any) => t?.slug).filter(Boolean);
+
   const inferred =
     catSlugs?.find((slug) =>
       ['futebol', 'basquete', 'tenis', 'esports'].includes(toSport(slug))
@@ -64,9 +63,20 @@ function mapPost(p: any) {
     createdAt,
     cover,
     sport,
-    excerpt,                 // 👈 enviado para os cards
+    excerpt,
     hrefPost: `/tips/${sport}/${id}`,
   };
+}
+
+async function fetchWpPage(endpoint: string) {
+  const r = await fetch(endpoint, { cache: 'no-store' });
+  if (!r.ok) {
+    const txt = await r.text().catch(() => '');
+    throw new Error(`Falha ao consultar WP: ${r.status} ${txt}`);
+  }
+  const totalPages = Number(r.headers.get('x-wp-totalpages') || '1') || 1;
+  const data = await r.json();
+  return { data, totalPages };
 }
 
 export async function GET(req: Request) {
@@ -79,37 +89,74 @@ export async function GET(req: Request) {
     }
 
     const url = new URL(req.url);
-    const sportParam = url.searchParams.get('sport') || 'futebol';
-    const perPage = url.searchParams.get('per_page') || '12';
+    const sportParam = url.searchParams.get('sport') || 'futebol'; // agora aceita 'all'
+    const perPageRaw = url.searchParams.get('per_page') || '12';   // aceita 'all'
     const page = url.searchParams.get('page') || '1';
     const postType = (url.searchParams.get('type') || process.env.WP_POST_TYPE || 'tips').toLowerCase();
+    const orderby = url.searchParams.get('orderby') || 'date';
+    const order = (url.searchParams.get('order') || 'desc').toLowerCase();
 
-    const sport = toSport(sportParam);
-    const catId = await fetchCategoryIdBySlug(sport);
-
+    // construímos o QS base
     const qs = new URLSearchParams({
-      per_page: perPage,
-      page,
       _embed: '1',
+      orderby,
+      order,
     });
 
-    let endpoint = `${WP_BASE}/wp-json/wp/v2/${postType}?${qs.toString()}`;
-    if (catId) {
-      endpoint += `&categories=${catId}`;
+    // se per_page = all, vamos paginar internamente com 100 por página
+    const wantsAll = perPageRaw.toLowerCase() === 'all';
+    const perPage = wantsAll ? '100' : perPageRaw;
+    if (!wantsAll) {
+      qs.set('per_page', perPage);
+      qs.set('page', page);
     } else {
-      endpoint += `&category_name=${encodeURIComponent(sport)}`;
+      qs.set('per_page', perPage); // 100 por requisição
     }
 
-    const r = await fetch(endpoint, { cache: 'no-store' });
-    if (!r.ok) {
-      const txt = await r.text().catch(() => '');
-      return NextResponse.json(
-        { error: 'Falha ao consultar WP', detail: txt },
-        { status: 502 }
-      );
+    // filtro por categoria (a não ser que o sport seja 'all')
+    const sport = sportParam.toLowerCase();
+    let catId: number | null = null;
+
+    if (sport !== 'all') {
+      const sportKey = toSport(sport);
+      catId = await fetchCategoryIdBySlug(sportKey);
+      if (catId) {
+        qs.set('categories', String(catId));
+      } else {
+        qs.set('category_name', encodeURIComponent(sportKey));
+      }
     }
 
-    const posts = await r.json();
+    const baseEndpoint = `${WP_BASE}/wp-json/wp/v2/${postType}`;
+
+    // buscar
+    let posts: any[] = [];
+
+    if (!wantsAll) {
+      const endpoint = `${baseEndpoint}?${qs.toString()}`;
+      const { data } = await fetchWpPage(endpoint);
+      posts = Array.isArray(data) ? data : [];
+    } else {
+      // paginação interna até trazer tudo
+      let current = 1;
+      let totalPages = 1;
+      do {
+        const pageQs = new URLSearchParams(qs);
+        pageQs.set('page', String(current));
+        const endpoint = `${baseEndpoint}?${pageQs.toString()}`;
+        const { data, totalPages: tp } = await fetchWpPage(endpoint);
+        totalPages = tp || 1;
+
+        if (Array.isArray(data) && data.length) {
+          posts.push(...data);
+        }
+
+        current += 1;
+        // segurança: limite duro de 10 páginas (1000 posts) para não travar
+        if (current > Math.max(10, totalPages)) break;
+      } while (current <= totalPages);
+    }
+
     const items = Array.isArray(posts) ? posts.map(mapPost) : [];
     return NextResponse.json({ items });
   } catch (err: any) {

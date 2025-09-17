@@ -253,7 +253,7 @@ export default function LatestListPage() {
     <main key={slug} className="min-h-screen bg-[#1E1E1E] text-white">
       {/* Banner (responsivo sem faixa branca no mobile) */}
       <section aria-label="Banner" className="relative">
-        <div className="relative mx-auto max-w-7xl sm:mt-8 md:mt-20">
+        <div className="relative mx-auto max-w-7xl mt-10">
           <div className="relative h-52 sm:h-64 md:h-72 lg:h-80">
             <Image
               src={bImage}

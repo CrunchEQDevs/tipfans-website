@@ -32,24 +32,24 @@ export default function NavbarDesktop({
   return (
     <header className="w-full">
       {/* Barra preta com LOGO */}
-      <div className="bg-[#1E1E1E] py-6">
-        <div className="w-full max-w-6xl mx-0 sm:mx-4 md:mx-8 lg:mx-12 xl:mx-48 px-4 sm:px-6 md:px-8 flex items-center">
-            <Link href="/" onClick={onScrollHome} className="block">
+      <div className="bg-[#1E1E1E] py-3 2xl:py-5">
+        <div className="w-full max-w-6xl mx-0 sm:mx-4 md:mx-8 lg:mx-12 lg:p-0 xl:mx-48  px-4 sm:px-6 md:px-8 flex items-center">
+          <Link href="/" onClick={onScrollHome} className="block">
             <Image
-                src="/Logo_TipFans.png"
-                alt="Logo TipFans"
-                width={450}
-                height={60}
-                className="h-auto cursor-pointer max-w-[380px]"
-                priority
+              src="/Logo_TipFans.png"
+              alt="Logo TipFans"
+              width={450}
+              height={60}
+              className="h-auto cursor-pointer max-w-[300px] 2xl-w-[350px] p-0 m-0"
+              priority
             />
-            </Link>
+          </Link>
         </div>
-        </div>
+      </div>
 
       {/* Barra azul com MENU central + ações à direita */}
       <nav className="bg-[#1E10C7] text-white">
-        <div className="max-w-7xl mx-auto px-6 py-2 flex items-center gap-6">
+        <div className="max-w-7xl mx-auto px-6 py-0 flex items-center gap-6">
           {/* MENU (CENTRO) */}
           <div className="flex-1 flex items-center justify-center gap-10 text-xl uppercase tracking-wide font-bold">
             {menuItems.map((item) => (

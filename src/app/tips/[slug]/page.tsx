@@ -38,9 +38,12 @@ const WP_TIPS_ENDPOINT_BASE = '/api/wp/tips';
 /* ---------- SEM fallback fictício ---------- */
 const FALLBACK_TIPS: TipItem[] = [];
 
+/* Tipo das chaves de desporto + “todas” */
+type SportKey = 'futebol' | 'basquete' | 'tenis' | 'esports' | 'todas';
+
 /* ---------- Config por desporto ---------- */
 const SPORT_CONFIG: Record<
-  'futebol' | 'basquete' | 'tenis' | 'esports',
+  SportKey,
   {
     name: string;
     bannerTitle: string;
@@ -82,16 +85,26 @@ const SPORT_CONFIG: Record<
     cardSub: 'CS • LoL • Valo',
     cardTitleBase: 'Dica de eSports',
   },
+  /* ✅ novo: slug /tips/todas */
+  todas: {
+    name: 'Todas',
+    bannerTitle: 'TODAS AS TIPS',
+    bannerDesc: 'Veja todas as previsões publicadas.',
+    cardImage: '/DICAS.png',        // imagem genérica
+    cardSub: 'Todas as Ligas',
+    cardTitleBase: 'Tip',
+  },
 };
 
-/* normaliza o slug da rota */
-function normalizeSlug(raw?: string): keyof typeof SPORT_CONFIG {
+/* normaliza o slug da rota (inclui “todas”) */
+function normalizeSlug(raw?: string): SportKey {
   if (!raw) return 'futebol';
   const s = raw
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '')
     .toLowerCase()
     .replace(/[^a-z0-9]/g, '');
+  if (s === 'todas' || s === 'all') return 'todas';
   if (s.includes('esport') || s.includes('e-sport')) return 'esports';
   if (s.startsWith('fut') || s.includes('soccer') || s.includes('foot')) return 'futebol';
   if (s.startsWith('basq') || s.includes('basket')) return 'basquete';
@@ -100,9 +113,8 @@ function normalizeSlug(raw?: string): keyof typeof SPORT_CONFIG {
 }
 
 /* normaliza o sport vindo de cada tip */
-function normalizeTipSport(raw?: string): keyof typeof SPORT_CONFIG {
-  if (!raw) return 'futebol';
-  const s = raw
+function normalizeTipSport(raw?: string): Exclude<SportKey, 'todas'> {
+  const s = (raw || '')
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '')
     .toLowerCase();
@@ -143,16 +155,15 @@ export default function SportContent() {
 
       let list: TipItem[] = [];
       try {
-        // ✅ chama a API interna já filtrando por desporto
+        // ✅ quando slug=todas → sport=all e per_page=all
         const base = new URL(WP_TIPS_ENDPOINT_BASE, window.location.origin);
-        base.searchParams.set('sport', slug);
-        base.searchParams.set('per_page', '12');
+        base.searchParams.set('sport', slug === 'todas' ? 'all' : slug);
+        base.searchParams.set('per_page', slug === 'todas' ? 'all' : '12');
         base.searchParams.set('orderby', 'date');
         base.searchParams.set('order', 'desc');
         base.searchParams.set('_', String(Date.now())); // cache-buster
 
         const json = (await fetchJson(base.toString())) as { items?: any[] } | any[];
-
         const items: any[] = Array.isArray(json)
           ? json
           : Array.isArray((json as any)?.items)
@@ -165,14 +176,13 @@ export default function SportContent() {
           return t.includes('tip');
         });
 
-        // mapeia para TipItem
+        // mapeia para TipItem (mantendo compat com API e WP cru)
         list = onlyTips.map((p: any): TipItem => {
-          // API já normalizada
           if (p?.hrefPost || p?.cover || p?.sport) {
             return {
               id: p?.id,
               title: p?.title ?? '',
-              sport: p?.sport ?? slug,
+              sport: p?.sport ?? undefined,
               league: p?.league ?? undefined,
               teams: p?.teams ?? undefined,
               pick: p?.pick ?? undefined,
@@ -183,7 +193,6 @@ export default function SportContent() {
             };
           }
 
-          // WP cru
           const acf = p?.acf || {};
           const embedded = p?._embedded || {};
           const media = embedded['wp:featuredmedia']?.[0];
@@ -195,7 +204,7 @@ export default function SportContent() {
             p?.jetpack_featured_media_url ??
             null;
 
-          const sportInferred = p?.sport ?? acf?.sport ?? acf?.modalidade ?? slug;
+          const sportInferred = p?.sport ?? acf?.sport ?? acf?.modalidade ?? undefined;
           const league = p?.league ?? acf?.league ?? acf?.liga ?? undefined;
           const teams =
             p?.teams ??
@@ -211,7 +220,7 @@ export default function SportContent() {
           return {
             id: p?.id,
             title,
-            sport: sportInferred ?? slug,
+            sport: sportInferred,
             league,
             teams,
             pick: p?.pick ?? acf?.pick ?? acf?.palpite ?? undefined,
@@ -225,10 +234,13 @@ export default function SportContent() {
         // sem fallback fictício
       }
 
-      // lista já vem filtrada pelo WP; ainda assim normalizamos
-      let filtered = (Array.isArray(list) ? list : []).filter(
-        (it) => normalizeTipSport(it.sport) === slug
-      );
+      // 🔎 filtro: só aplica quando NÃO é "todas"
+      let filtered = (Array.isArray(list) ? list : []);
+      if (slug !== 'todas') {
+        filtered = filtered.filter(
+          (it) => normalizeTipSport(it.sport) === slug
+        );
+      }
 
       // highlight para o topo (se houver)
       if (highlightId) {
@@ -239,7 +251,8 @@ export default function SportContent() {
         }
       }
 
-      setTips(filtered.slice(0, 12));
+      // quando “todas” não cortamos; senão limitamos 12
+      setTips(slug === 'todas' ? filtered : filtered.slice(0, 12));
     } finally {
       setTipsLoading(false);
     }
@@ -264,31 +277,40 @@ export default function SportContent() {
     };
   }, [loadTips]);
 
-  const visible = useMemo(() => tips.slice(0, 12), [tips]);
+  // visibilidade: em “todas” mostra tudo; nas demais, 12
+  const visible = useMemo(
+    () => (slug === 'todas' ? tips : tips.slice(0, 12)),
+    [tips, slug]
+  );
 
-  // destaques = 2 primeiros
+  // destaques = 2 primeiros (funciona igual para “todas”)
   const featured = useMemo<TipItem[]>(
     () => (Array.isArray(visible) ? visible.slice(0, 2) : []),
     [visible]
   );
 
-  const sportOptions: { value: keyof typeof SPORT_CONFIG; label: string }[] = [
+  const sportOptions: { value: SportKey; label: string }[] = [
+    { value: 'todas', label: 'Todas' },      // ✅ opção nova
     { value: 'futebol', label: 'Futebol' },
     { value: 'tenis', label: 'Ténis' },
     { value: 'basquete', label: 'Basquetebol' },
     { value: 'esports', label: 'eSports' },
   ];
 
-  const onChangeSportShadcn = (value: string) => {
-    const next = value as keyof typeof SPORT_CONFIG;
+  const routerPushTo = (value: SportKey) => {
     const qs = search?.toString();
-    router.push(qs ? `/tips/${next}?${qs}` : `/tips/${next}`);
+    const url = qs ? `/tips/${value}?${qs}` : `/tips/${value}`;
+    router.push(url);
+  };
+
+  const onChangeSportShadcn = (value: string) => {
+    routerPushTo(value as SportKey);
   };
 
   return (
     <main key={slug} className="bg-[#1E1E1E] text-white">
       {/* HERO */}
-      <div className="px-4 mt-24">
+      <div className="px-4 mt-14 lg:mt-9">
         <div className="overflow-hidden relative ">
           <Image
             src="/DICAS.png"
@@ -309,7 +331,7 @@ export default function SportContent() {
                 <div className="rounded-xl bg-[#3f3f3f]/70 ring-1 ring-white/10 px-8 py-8 md:px-10 md:py-10 backdrop-blur">
                   <div className="flex items-center justify-between">
                     <span className="text-[20px] md:text-xl font-bold uppercase tracking-wide text-white/90">
-                      Top Previsões
+                      {slug === 'todas' ? 'Todas as Tips' : 'Top Previsões'}
                     </span>
 
                     <div className="relative">
@@ -440,7 +462,9 @@ export default function SportContent() {
           </div>
         ) : visible.length === 0 ? (
           <div className="rounded-xl bg-[#1B1F2A] p-6 text-center text-white/80 ring-1 ring-white/10">
-            Ainda não há tips de <span className="font-semibold">{cfg.name}</span>.
+            {slug === 'todas'
+              ? 'Ainda não há tips publicadas.'
+              : <>Ainda não há tips de <span className="font-semibold">{cfg.name}</span>.</>}
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
@@ -483,7 +507,7 @@ export default function SportContent() {
           </div>
         )}
 
-        {/* paginação mock */}
+        {/* paginação mock (mantida) */}
         <div className="mt-6 flex items-center justify-between">
           <nav className="flex items-center gap-2 left">
             <button className="rounded-md px-3 py-1.5 text-sm ring-1 ring-white/10 hover:bg-white/5">

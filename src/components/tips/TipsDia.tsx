@@ -7,23 +7,34 @@ import TipsDiaDesktop from './desktop/TipsDiaDesktop';
 import TipsDiaMobile from './mobile/TipsDiaMobile';
 import type { TipCard } from './types';
 
-const MAX_CARDS = 6;
-
 const TOP_LINKS = [
-  { label: 'Futebol',  href: '/tips/futebol' },
-  { label: 'Ténis',    href: '/tips/tenis' },
-  { label: 'Basquete', href: '/tips/basquete' },
-  { label: 'E-sports', href: '/tips/esports' },
-  { label: 'Ver todas', href: '/tips' },
+  { label: 'Futebol',   href: '/tips/futebol' },
+  { label: 'Ténis',     href: '/tips/tenis' },
+  { label: 'Basquete',  href: '/tips/basquete' },
+  { label: 'E-sports',  href: '/tips/esports' },
+  { label: 'Ver todas', href: '/tips/todas' },
 ];
 
+// normalização segura
+function normSafe(v: unknown) {
+  const s = v == null ? '' : String(v);
+  try {
+    // @ts-ignore
+    return (s.normalize ? s.normalize('NFD') : s).replace(/\p{Diacritic}/gu, '').toLowerCase();
+  } catch {
+    return s.toLowerCase();
+  }
+}
+
 function toSportSlug(s?: string) {
-  const x = (s || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
-  if (x.includes('esport')) return 'esports';
+  const x = normSafe(s || '');
+  if (x.replace(/[^a-z0-9]/g, '').includes('esports') || x.includes('e-sport') || x.includes('e sport')) return 'esports';
   if (x.startsWith('basq') || x.includes('basket')) return 'basquete';
   if (x.startsWith('ten')) return 'tenis';
+  if (x.startsWith('fut') || x.includes('soccer') || x.includes('foot')) return 'futebol';
   return 'futebol';
 }
+
 function htmlToText(html = '') {
   return html
     .replace(/<[^>]+>/g, ' ')
@@ -47,6 +58,14 @@ async function fetchJson(url: string) {
   return r.json();
 }
 
+// timestamp seguro para ordenar DESC
+function ts(it?: { createdAt?: string; id?: string | number }) {
+  const t = it?.createdAt ? new Date(it.createdAt).getTime() : NaN;
+  if (!Number.isNaN(t)) return t;
+  const idNum = Number(it?.id);
+  return Number.isFinite(idNum) ? idNum : -Infinity;
+}
+
 export default function TipsDia({ tips }: { tips?: TipCard[] }) {
   const [fetched, setFetched] = useState<TipCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,7 +75,8 @@ export default function TipsDia({ tips }: { tips?: TipCard[] }) {
     (async () => {
       try {
         setLoading(true);
-        const json = await fetchJson('/api/wp/tips?per_page=6&orderby=date&order=desc');
+        // busca todas as tips de todos os desportos (mais recentes primeiro)
+        const json = await fetchJson('/api/wp/tips?per_page=all&sport=all&orderby=date&order=desc');
         const items: any[] = Array.isArray(json?.items) ? json.items : [];
 
         const mapped: TipCard[] = items.map((p: any) => {
@@ -83,9 +103,12 @@ export default function TipsDia({ tips }: { tips?: TipCard[] }) {
           };
         });
 
-        if (!cancel) setFetched(mapped);
+        // garante mais recente primeiro
+        const ordered = [...mapped].sort((a, b) => ts(b) - ts(a));
+
+        if (!cancel) setFetched(ordered);
       } catch {
-        if (!cancel) setFetched([]); // vai cair no fallback (tips prop)
+        if (!cancel) setFetched([]);
       } finally {
         if (!cancel) setLoading(false);
       }
@@ -93,15 +116,18 @@ export default function TipsDia({ tips }: { tips?: TipCard[] }) {
     return () => { cancel = true; };
   }, []);
 
-  // prioriza os dados DINÂMICOS; se falhar, usa o prop do server
-  const base = useMemo(() => (fetched.length ? fetched : (tips || [])), [fetched, tips]);
-
-  const items: TipCard[] = base
-    .slice(0, MAX_CARDS)
-    .map((t) => ({
+  // prioriza os dados dinâmicos; se falhar, usa o prop do server (também ordenado)
+  const items: TipCard[] = useMemo(() => {
+    const base: TipCard[] = (fetched.length ? fetched : (tips || [])).slice();
+    base.sort((a, b) => ts(b) - ts(a)); // ordena fallback do server também
+    return base.map((t) => ({
       ...t,
-      href: t.href ?? t.hrefPost ?? `/tips/${toSportSlug(t.sport)}/${t.id}`,
+      href: t.href ?? (t as any).hrefPost ?? `/tips/${toSportSlug(t.sport)}/${t.id}`,
     }));
+  }, [fetched, tips]);
+
+  // chave que força o carrossel a reiniciar no slide 0 quando o "mais recente" muda
+  const firstKey = `first-${items[0]?.id ?? 'none'}`;
 
   return (
     <section className="relative w-full bg-[#1E1E1E] py-10 overflow-hidden">
@@ -140,7 +166,7 @@ export default function TipsDia({ tips }: { tips?: TipCard[] }) {
               <Link
                 key={b.label}
                 href={b.href}
-                className="inline-flex items-center rounded-lg bg-[#ED4F00] hover:bg-white/20 text-white text-sm font-semibold px-3 py-1.5 transition"
+                className="inline-flex items-center rounded-lg bg-[#ED4F00] hover:bg白/20 text-white text-sm font-semibold px-3 py-1.5 transition"
               >
                 {b.label}
               </Link>
@@ -150,12 +176,12 @@ export default function TipsDia({ tips }: { tips?: TipCard[] }) {
 
         {/* Desktop */}
         <div className="hidden md:block">
-          <TipsDiaDesktop tips={items} />
+          <TipsDiaDesktop key={`desktop-${firstKey}`} tips={items} />
         </div>
 
         {/* Mobile */}
         <div className="md:hidden">
-          <TipsDiaMobile tips={items} />
+          <TipsDiaMobile key={`mobile-${firstKey}`} tips={items} />
         </div>
 
         {!fetched.length && loading && (
