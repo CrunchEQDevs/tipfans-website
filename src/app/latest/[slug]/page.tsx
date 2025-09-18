@@ -98,7 +98,7 @@ function bannerDesc(s: SlugKey) {
 }
 
 function bannerImageFromSlug(s: SlugKey) {
-  return s === 'futebol' ? '/B_futebol.png' :
+  return s === 'futebol' ? '/B_futebol2.png' :
          s === 'basquete' ? '/B_basquete.png' :
          s === 'tenis' ? '/B_tenis.png' :
          s === 'esports' ? '/B_esport.png' :
@@ -251,30 +251,31 @@ export default function LatestListPage() {
 
   return (
     <main key={slug} className="min-h-screen bg-[#1E1E1E] text-white">
-      {/* Banner (responsivo sem faixa branca no mobile) */}
-      <section aria-label="Banner" className="relative">
-        <div className="relative mx-auto max-w-7xl ">
-          <div className="relative h-52 sm:h-64 md:h-72 lg:h-80">
-            <Image
-              src={bImage}
-              alt={bTitle}
-              fill
-              className="object-cover object-[50%_30%]"
-              sizes="100vw"
-              priority
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-            <div className="absolute inset-x-4 bottom-4 sm:inset-x-6 sm:bottom-6 md:inset-x-8">
-              <h1 className="text-white font-extrabold tracking-tight text-xl sm:text-2xl md:text-3xl">
-                {bTitle}
-              </h1>
-              <p className="mt-1 text-white/90 text-xs sm:text-sm md:text-base max-w-[65ch]">
-                {bDesc}
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+     {/* Banner (responsivo sem faixa branca no mobile) */}
+<section aria-label="Banner" className="relative">
+  <div className="relative mx-auto max-w-7xl ">
+    <div className="relative h-40 sm:h-44 md:h-72 lg:h-60 xl:h-96 bg-black"> {/* add bg-black opcional */}
+      <Image
+        src={bImage}
+        alt={bTitle}
+        fill
+        sizes="100vw"
+        className="object-cover object-top"   // ← antes era "object-cover"
+        priority
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+      <div className="absolute inset-x-4 bottom-4 sm:inset-x-6 sm:bottom-6 md:inset-x-8">
+        <h1 className="text-white font-extrabold tracking-tight text-xl sm:text-2xl md:text-3xl">
+          {bTitle}
+        </h1>
+        <p className="mt-1 text-white/90 text-xs sm:text-sm md:text-base max-w-[65ch]">
+          {bDesc}
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
 
       {/* Conteúdo */}
       <section className="mx-auto max-w-7xl px-4 mt-6">
