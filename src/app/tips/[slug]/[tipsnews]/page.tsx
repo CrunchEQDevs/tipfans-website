@@ -147,7 +147,7 @@ export default function Page() {
     return (
       <main className="bg-[#1E1E1E] text-white">
         <TipBanner />
-        <div className="mx-auto w-full max-w-7xl px-4 py-8">
+        <div className="mx-auto w-full max-w-7xl px-4 ">
           <div className="animate-pulse space-y-4">
             <div className="h-5 w-40 bg-white/10 rounded" />
             <div className="h-64 bg-white/10 rounded-xl" />

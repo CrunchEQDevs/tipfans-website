@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { HiOutlinePlay } from 'react-icons/hi2';
 
 type NewsItem = {
@@ -46,7 +46,6 @@ async function fetchJson(url: string): Promise<any> {
 function BigCardSkeleton() {
   return (
     <article className="overflow-hidden">
-      {/* mesma proporção do real em md+ */}
       <div className="relative h-[220px] sm:h-[320px] md:h-auto md:aspect-[16/9] bg-white/10 animate-pulse rounded-xl" />
       <div className="space-y-3 p-5">
         <div className="h-3 w-40 bg-white/10 rounded animate-pulse" />
@@ -91,7 +90,7 @@ export default function Hero() {
         base.searchParams.set('orderby', 'date');
         base.searchParams.set('order', 'desc');
 
-        const json = await fetchJson(base.toString()); // { items: [...] }
+        const json = await fetchJson(base.toString());
         const arr: any[] = Array.isArray(json?.items) ? json.items : [];
 
         const mapped: NewsItem[] = arr.map((p: any): NewsItem => {
@@ -110,22 +109,53 @@ export default function Hero() {
 
         if (!cancel) setItems(mapped.slice(0, 3));
       } catch {
-        if (!cancel) setItems([]); // nada → sem fallback
+        if (!cancel) setItems([]); // sem fallback
       } finally {
         if (!cancel) setLoading(false);
       }
     })();
-    return () => {
-      cancel = true;
-    };
+    return () => { cancel = true; };
   }, []);
 
   const news = useMemo(() => items.slice(0, 3), [items]);
   const rightCol = useMemo(() => news.slice(1, 3), [news]);
 
+  /* ======== MOBILE: carrossel robusto (inline CSS) ======== */
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [activeIdx, setActiveIdx] = useState(0);
+
+  const scrollToSlide = (i: number) => {
+    const el = trackRef.current;
+    if (!el) return;
+    const slides = el.querySelectorAll<HTMLElement>('[data-slide]');
+    if (!slides.length) return;
+    const idx = Math.max(0, Math.min(i, slides.length - 1));
+    slides[idx].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+    setActiveIdx(idx);
+  };
+  const onPrev = () => scrollToSlide(activeIdx - 1);
+  const onNext = () => {
+    const last = (loading ? 2 : news.length - 1);
+    if (activeIdx >= last) return; // quer loop? troco pra módulo
+    scrollToSlide(activeIdx + 1);
+  };
+
+  const onTrackScroll = () => {
+    const el = trackRef.current;
+    if (!el) return;
+    const slides = el.querySelectorAll<HTMLElement>('[data-slide]');
+    if (!slides.length) return;
+    let best = 0, bestDist = Infinity;
+    slides.forEach((s, i) => {
+      const dist = Math.abs(s.offsetLeft - el.scrollLeft);
+      if (dist < bestDist) { bestDist = dist; best = i; }
+    });
+    setActiveIdx(best);
+  };
+
   return (
     <section className="relative w-full bg-[#1E1E1E] py-10 overflow-hidden">
-      {/* BG decor */}
+      {/* BG decor (desktop) */}
       <div className="pointer-events-none absolute left-0 top-4 hidden md:block opacity-90">
         <Image
           src="/NEWS.png"
@@ -151,9 +181,9 @@ export default function Hero() {
           </Link>
         </div>
 
-        {/* 50/50 no md+ */}
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-          {/* ESQUERDA (50%) */}
+        {/* ===== DESKTOP (inalterado) — escondido no mobile ===== */}
+        <div className="hidden md:grid grid-cols-2 gap-8">
+          {/* ESQUERDA */}
           {loading ? (
             <BigCardSkeleton />
           ) : news[0] ? (
@@ -173,7 +203,6 @@ export default function Hero() {
                 )}
               </div>
 
-              {/* bloco com altura flex pra fixar botão em baixo */}
               <div className="p-5 flex flex-col gap-3 min-h-[200px]">
                 {(news[0].tag || news[0].date) && (
                   <p className="text-[11px] sm:text-[12px] text-gray-400">
@@ -213,7 +242,7 @@ export default function Hero() {
             <div className="rounded-md p-6 text-white/80">Nada por aqui ainda.</div>
           )}
 
-          {/* DIREITA (50%) */}
+          {/* DIREITA */}
           <div className="grid grid-rows-2 gap-6">
             {loading ? (
               <>
@@ -224,7 +253,6 @@ export default function Hero() {
               rightCol.map((item, idx) => (
                 <article key={idx} className="overflow-hidden rounded-xl">
                   <div className="flex flex-col md:flex-row h-full">
-                    {/* imagem = 50% do card */}
                     <div className="relative w-full md:w-[50%] h-48 sm:h-56 md:h-auto md:aspect-[4/3]">
                       {item.image ? (
                         <Image
@@ -240,7 +268,6 @@ export default function Hero() {
                       )}
                     </div>
 
-                    {/* texto com botão sempre alinhado */}
                     <div className="flex flex-1 flex-col justify-between p-5">
                       <div>
                         {(item.tag || item.date) && (
@@ -281,6 +308,111 @@ export default function Hero() {
             )}
           </div>
         </div>
+
+        {/* ===== MOBILE (carrossel) — só no < md ===== */}
+        <div className="block md:hidden relative mt-8">
+          {/* setas */}
+          <button
+            aria-label="Anterior"
+            onClick={onPrev}
+            disabled={activeIdx === 0}
+            className="absolute -left-5 top-1/2 -translate-y-1/2 z-20 bg-black/50 disabled:opacity-40 hover:bg-black/70 text-white px-3 py-2 rounded-full font-bold shadow"
+          >
+            «
+          </button>
+          <button
+            aria-label="Próximo"
+            onClick={onNext}
+            disabled={activeIdx >= (loading ? 2 : news.length - 1)}
+            className="absolute -right-2 top-1/2 -translate-y-1/2 z-20 bg-black/50 disabled:opacity-40 hover:bg-black/70 text-white px-3 py-2 rounded-full font-bold shadow"
+          >
+            »
+          </button>
+
+          <div
+            ref={trackRef}
+            onScroll={onTrackScroll}
+            className="pb-2 [-ms-overflow-style:none] [scrollbar-width:none]"
+            style={{
+              display: 'grid',
+              gridAutoFlow: 'column',
+              gridAutoColumns: '88vw',   // largura de cada slide
+              gap: 16,                    // mesmo do tailwind gap-4
+              overflowX: 'auto',
+              scrollSnapType: 'x mandatory',
+            }}
+          >
+            <style jsx>{`div::-webkit-scrollbar { display: none; }`}</style>
+
+            {(loading ? [0, 1, 2] : news).map((it: any, idx: number) => (
+              <div
+                key={idx}
+                data-slide
+                style={{ scrollSnapAlign: 'start' }}
+              >
+                {loading ? (
+                  idx === 0 ? <BigCardSkeleton /> : <SideCardSkeleton />
+                ) : (
+                  <article className="overflow-hidden">
+                    <div className={`relative ${idx === 0 ? 'h-[220px]' : 'h-56'}`}>
+                      {it.image ? (
+                        <Image
+                          src={it.image}
+                          alt={it.title || ''}
+                          fill
+                          className="object-cover object-center rounded-xl"
+                          sizes="100vw"
+                          priority={idx === 0}
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-white/10 rounded-xl" />
+                      )}
+                    </div>
+
+                    <div className="p-5">
+                      {(it.tag || it.date) && (
+                        <p className="text-[11px] text-gray-400">
+                          {it.tag && (
+                            <span className={`font-semibold ${it.tagColor || 'text-orange-400'}`}>
+                              {it.tag}
+                            </span>
+                          )}
+                          {it.tag && it.date ? ' | ' : ''}
+                          {it.date}
+                        </p>
+                      )}
+
+                      {it.title && (
+                        <h3 className={`mt-1 font-semibold text-white leading-snug ${idx === 0 ? 'text-[16px]' : 'text-[15px]'} line-clamp-2`}>
+                          {it.title}
+                        </h3>
+                      )}
+
+                      {it.excerpt && (
+                        <p className="mt-2 text-[13px] leading-relaxed text-gray-300 line-clamp-4">
+                          {it.excerpt}
+                        </p>
+                      )}
+
+                      <div className="pt-3">
+                        <Link
+                          href={it.href || '/latest/futebol'}
+                          className={`inline-block bg-orange-600 px-4 py-2 text-white font-semibold transition hover:bg-orange-700 ${idx === 0 ? 'text-sm' : 'text-xs'}`}
+                        >
+                          Ver mais
+                        </Link>
+                      </div>
+                    </div>
+                  </article>
+                )}
+              </div>
+            ))}
+
+            {/* sentinela fininha para estabilidade do snap no fim */}
+            <div aria-hidden style={{ width: 1, flex: '0 0 auto' }} />
+          </div>
+        </div>
+        {/* ===== /MOBILE ===== */}
       </div>
     </section>
   );

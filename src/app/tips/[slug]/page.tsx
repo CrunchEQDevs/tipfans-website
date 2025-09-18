@@ -46,7 +46,6 @@ const SPORT_CONFIG: Record<
   SportKey,
   {
     name: string;
-    bannerTitle: string;
     bannerDesc: string;
     cardImage: string;
     cardSub: string;
@@ -55,7 +54,6 @@ const SPORT_CONFIG: Record<
 > = {
   futebol: {
     name: 'Futebol',
-    bannerTitle: 'PREVISÕES E DICAS DE APOSTA ',
     bannerDesc: 'Estudos e picks dos especialistas e da comunidade.',
     cardImage: '/futebol.png',
     cardSub: 'Liga PT',
@@ -63,7 +61,6 @@ const SPORT_CONFIG: Record<
   },
   basquete: {
     name: 'Basquetebol',
-    bannerTitle: 'PREVISÕES E DICAS DE APOSTA',
     bannerDesc: 'Análises rápidas para ACB e NBA.',
     cardImage: '/basquete.png',
     cardSub: 'ACB / NBA',
@@ -71,7 +68,6 @@ const SPORT_CONFIG: Record<
   },
   tenis: {
     name: 'Ténis',
-    bannerTitle: 'PREVISÕES E DICAS DE APOSTA',
     bannerDesc: 'ATP e WTA com foco em valor.',
     cardImage: '/tennis.png',
     cardSub: 'ATP / WTA',
@@ -79,18 +75,16 @@ const SPORT_CONFIG: Record<
   },
   esports: {
     name: 'eSports',
-    bannerTitle: 'PREVISÕES E DICAS DE APOSTA',
     bannerDesc: 'CS • LoL • Valorant em destaque.',
     cardImage: '/eSports.png',
     cardSub: 'CS • LoL • Valo',
     cardTitleBase: 'Dica de eSports',
   },
-  /* ✅ novo: slug /tips/todas */
+  /* ✅ slug /tips/todas */
   todas: {
     name: 'Todas',
-    bannerTitle: 'TODAS AS TIPS',
     bannerDesc: 'Veja todas as previsões publicadas.',
-    cardImage: '/DICAS.png',        // imagem genérica
+    cardImage: '/DICAS.png',
     cardSub: 'Todas as Ligas',
     cardTitleBase: 'Tip',
   },
@@ -120,7 +114,7 @@ function normalizeTipSport(raw?: string): Exclude<SportKey, 'todas'> {
     .toLowerCase();
   if (s.includes('esport')) return 'esports';
   if (s.startsWith('fut') || s.includes('soccer') || s.includes('foot')) return 'futebol';
-  if (s.startsWith('basq') || s.includes('basket')) return 'basquete';
+  if (s.startsWith('basq')) return 'basquete';
   if (s.startsWith('ten')) return 'tenis';
   return 'futebol';
 }
@@ -152,31 +146,23 @@ export default function SportContent() {
   const loadTips = useCallback(async () => {
     try {
       setTipsLoading(true);
-
       let list: TipItem[] = [];
       try {
-        // ✅ quando slug=todas → sport=all e per_page=all
         const base = new URL(WP_TIPS_ENDPOINT_BASE, window.location.origin);
         base.searchParams.set('sport', slug === 'todas' ? 'all' : slug);
         base.searchParams.set('per_page', slug === 'todas' ? 'all' : '12');
         base.searchParams.set('orderby', 'date');
         base.searchParams.set('order', 'desc');
-        base.searchParams.set('_', String(Date.now())); // cache-buster
+        base.searchParams.set('_', String(Date.now()));
 
         const json = (await fetchJson(base.toString())) as { items?: any[] } | any[];
-        const items: any[] = Array.isArray(json)
-          ? json
-          : Array.isArray((json as any)?.items)
-          ? (json as any).items
-          : [];
+        const items: any[] = Array.isArray(json) ? json : Array.isArray((json as any)?.items) ? (json as any).items : [];
 
-        // garante só CPT tips
         const onlyTips = items.filter((p: any) => {
           const t = (p?.type || p?.post_type || 'tips').toString().toLowerCase();
           return t.includes('tip');
         });
 
-        // mapeia para TipItem (mantendo compat com API e WP cru)
         list = onlyTips.map((p: any): TipItem => {
           if (p?.hrefPost || p?.cover || p?.sport) {
             return {
@@ -192,7 +178,6 @@ export default function SportContent() {
               createdAt: p?.createdAt ?? undefined,
             };
           }
-
           const acf = p?.acf || {};
           const embedded = p?._embedded || {};
           const media = embedded['wp:featuredmedia']?.[0];
@@ -212,10 +197,7 @@ export default function SportContent() {
             (acf?.home && acf?.away ? `${acf.home} x ${acf.away}` : undefined);
           const odds = p?.odds ?? acf?.odds ?? acf?.odd ?? undefined;
           const author =
-            p?.author_name ??
-            p?.author ??
-            embedded?.author?.[0]?.name ??
-            undefined;
+            p?.author_name ?? p?.author ?? embedded?.author?.[0]?.name ?? undefined;
 
           return {
             id: p?.id,
@@ -234,15 +216,11 @@ export default function SportContent() {
         // sem fallback fictício
       }
 
-      // 🔎 filtro: só aplica quando NÃO é "todas"
       let filtered = (Array.isArray(list) ? list : []);
       if (slug !== 'todas') {
-        filtered = filtered.filter(
-          (it) => normalizeTipSport(it.sport) === slug
-        );
+        filtered = filtered.filter((it) => normalizeTipSport(it.sport) === slug);
       }
 
-      // highlight para o topo (se houver)
       if (highlightId) {
         const idx = filtered.findIndex((it) => String(it.id) === highlightId);
         if (idx > -1) {
@@ -251,7 +229,6 @@ export default function SportContent() {
         }
       }
 
-      // quando “todas” não cortamos; senão limitamos 12
       setTips(slug === 'todas' ? filtered : filtered.slice(0, 12));
     } finally {
       setTipsLoading(false);
@@ -277,20 +254,13 @@ export default function SportContent() {
     };
   }, [loadTips]);
 
-  // visibilidade: em “todas” mostra tudo; nas demais, 12
   const visible = useMemo(
     () => (slug === 'todas' ? tips : tips.slice(0, 12)),
     [tips, slug]
   );
 
-  // destaques = 2 primeiros (funciona igual para “todas”)
-  const featured = useMemo<TipItem[]>(
-    () => (Array.isArray(visible) ? visible.slice(0, 2) : []),
-    [visible]
-  );
-
   const sportOptions: { value: SportKey; label: string }[] = [
-    { value: 'todas', label: 'Todas' },      // ✅ opção nova
+    { value: 'todas', label: 'Todas' },
     { value: 'futebol', label: 'Futebol' },
     { value: 'tenis', label: 'Ténis' },
     { value: 'basquete', label: 'Basquetebol' },
@@ -308,139 +278,83 @@ export default function SportContent() {
   };
 
   return (
-    <main key={slug} className="bg-[#1E1E1E] text-white">
-      {/* HERO */}
-      <div className="px-4 mt-14 lg:mt-9">
-        <div className="overflow-hidden relative ">
+    <main key={slug} className="bg-[#1E1E1E] text-white sm:mt-0">
+      {/* HERO – banner full-bleed responsivo + barra alinhada ao container */}
+      <section className="relative w-full">
+        {/* FULL-BLEED (100vw) */}
+        <div
+          className="
+            relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen
+            h-[110px] sm:h-[260px] md:h-[260px] lg:h-[320px] xl:h-[360px]
+            bg-black
+          "
+        >
           <Image
-            src="/DICAS.png"
+            src="/tips/banner_Dicas_mobile.jpg"
             alt="Banner"
-            width={1100}
-            height={100}
-            className="object-contain"
+            fill
+            sizes="100vw"
+            /* mobile NÃO corta o texto; em md+ mantém o visual do desktop */
+            className="object-contain md:object-cover object-left"
             priority
           />
 
-          <div className="absolute inset-0 flex items-end">
-            <div className="mx-auto w-full max-w-7xl">
-              <h1 className="text-3xl md:text-4xl font-extrabold mb-10">
-                {cfg.bannerTitle}
-              </h1>
-
-              <div className="mt-6 mx-auto w-full max-w-7xl px-4">
-                <div className="rounded-xl bg-[#3f3f3f]/70 ring-1 ring-white/10 px-8 py-8 md:px-10 md:py-10 backdrop-blur">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[20px] md:text-xl font-bold uppercase tracking-wide text-white/90">
-                      {slug === 'todas' ? 'Todas as Tips' : 'Top Previsões'}
-                    </span>
-
-                    <div className="relative">
-                      <label htmlFor="sport-select" className="sr-only">
-                        Selecionar desporto
-                      </label>
-                      <Select defaultValue={slug} onValueChange={onChangeSportShadcn}>
-                        <SelectTrigger
-                          className="
-                            border-0 shadow-none px-0 py-0 text-[20px]
-                            text-[#ED4F00] font-bold focus:ring-0 focus:outline-none
-                            data-[state=open]:bg-transparent
-                          "
-                        >
-                          <SelectValue placeholder="Escolher desporto" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-transparent border-0 shadow-none text-[#ED4F00]">
-                          {sportOptions.map((opt) => (
-                            <SelectItem
-                              key={opt.value}
-                              value={opt.value}
-                              className="
-                                bg-transparent text-[#ED4F00]
-                                hover:bg-transparent hover:text-[#ED4F00]
-                                focus:bg-transparent focus:text-white
-                                data-[state=checked]:bg-transparent data-[state=checked]:text-white
-                                text-[20px]
-                              "
-                            >
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* /header */}
+          {/* (opcional) overlay de conteúdo dentro do banner */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="mx-auto w-full max-w-7xl px-4">
+              {/* conteúdo opcional do banner */}
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Destaques */}
-      <div className="mx-auto max-w-7xl px-4">
-        <div className="mt-6 rounded-xl bg-[#1d2029] p-3">
-          {tipsLoading ? (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {Array.from({ length: 2 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="overflow-hidden rounded-lg bg-[#1B1F2A] ring-1 ring-white/10"
-                >
-                  <div className="aspect-[16/9] animate-pulse bg-white/10" />
-                  <div className="space-y-2 p-3">
-                    <div className="h-3 w-24 animate-pulse rounded bg-white/10" />
-                    <div className="h-4 w-3/4 animate-pulse rounded bg-white/10" />
-                    <div className="h-3 w-2/3 animate-pulse rounded bg-white/10" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {featured.map((tip, i) => {
-                const tipSport = normalizeTipSport(tip.sport);
-                const tipCfg = SPORT_CONFIG[tipSport];
-                const href =
-                  tip && typeof tip.id !== 'undefined'
-                    ? `/tips/${tipSport}/${tip.id}`
-                    : '#';
-                return (
-                  <Link
-                    key={String(tip.id) + '-featured'}
-                    href={href}
-                    className="group relative overflow-hidden rounded-lg ring-1 ring-white/10"
+        {/* Barra “Top Previsões” com mesma largura da section */}
+        <div className="mx-auto w-full max-w-7xl px-4">
+          <div className="-mt-4 sm:-mt-6 rounded-xl bg-[#3f3f3f]/70 ring-1 ring-white/10 px-6 py-1 md:px-8 md:py-6 backdrop-blur">
+            <div className="flex items-center justify-between">
+              <span className="text-base sm:text-lg md:text-xl font-bold uppercase tracking-wide text-white/90">
+                {slug === 'todas' ? 'Todas as Tips' : 'Top Previsões'}
+              </span>
+
+              {/* Select */}
+              <div className="relative">
+                <label htmlFor="sport-select" className="sr-only">
+                  Selecionar desporto
+                </label>
+                <Select defaultValue={slug} onValueChange={onChangeSportShadcn}>
+                  <SelectTrigger
+                    className="
+                      border-0 shadow-none px-0 py-0 text-[20px]
+                      text-[#ED4F00] font-bold focus:ring-0 focus:outline-none
+                      data-[state=open]:bg-transparent
+                    "
                   >
-                    <div className="relative aspect-[16/8]">
-                      <Image
-                        src={tip.image ?? tipCfg.cardImage}
-                        alt={tip.title || `${tipCfg.cardTitleBase} #${i + 1}`}
-                        fill
-                        className="object-cover transition-transform duration-300 group-hover:scale-105"
-                        sizes="(min-width: 640px) 50vw, 100vw"
-                        priority={i === 0}
-                      />
-                      <div className="absolute inset-x-0 bottom-0 bg-black/55 backdrop-blur-sm p-3">
-                        <p className="text-[11px] uppercase tracking-wide text-white/70">
-                          {tip.league || tipCfg.cardSub}
-                        </p>
-                        <h3 className="line-clamp-2 text-sm font-semibold">
-                          {tip.title || `${tipCfg.cardTitleBase} #${i + 1}`}
-                        </h3>
-                        {tip.odds ? (
-                          <p className="mt-1 text-xs text-white/80">
-                            Odds: @{tip.odds}
-                          </p>
-                        ) : null}
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
+                    <SelectValue placeholder="Escolher desporto" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-transparent border-0 shadow-none text-[#ED4F00]">
+                    {sportOptions.map((opt) => (
+                      <SelectItem
+                        key={opt.value}
+                        value={opt.value}
+                        className="
+                          bg-transparent text-[#ED4F00]
+                          hover:bg-transparent hover:text-[#ED4F00]
+                          focus:bg-transparent focus:text-white
+                          data-[state=checked]:bg-transparent data-[state=checked]:text-white
+                          text-[20px]
+                        "
+                      >
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      </section>
+
+      {/* (REMOVIDO) Destaques – os 2 cards superiores */}
 
       {/* GRID */}
       <section className="mx-auto max-w-7xl px-3 py-6">

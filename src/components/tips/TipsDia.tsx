@@ -144,22 +144,13 @@ export default function TipsDia({ tips }: { tips?: TipCard[] }) {
         />
       </div>
 
-      {/* BG mobile */}
-      <div className="md:hidden absolute inset-0 -z-10 pointer-events-none select-none">
-        <Image
-          src="/tips/TIPS_menu.png"
-          alt="Tips BG"
-          fill
-          sizes="100vw"
-          className="object-contain object-center opacity-10 scale-[1.35] translate-y-6"
-          priority
-        />
-      </div>
+ 
 
       <div className="container mx-auto px-4">
         {/* Cabeçalho */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
           <h2 className="text-3xl font-bold text-white">Tips do Dia</h2>
+          
 
           <div className="flex flex-wrap items-center gap-2">
             {TOP_LINKS.map((b) => (
