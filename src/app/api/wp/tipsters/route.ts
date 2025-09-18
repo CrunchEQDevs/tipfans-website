@@ -21,6 +21,9 @@ const pickAvatar = (u: any) =>
 async function listAllUsers(): Promise<Tipster[]> {
   const out: Tipster[] = [];
   let page = 1;
+  const cbKey = '_';
+  const cbVal = String(Date.now()); // cache-buster
+
   while (true) {
     const qs = new URLSearchParams({
       who: 'authors',
@@ -29,6 +32,7 @@ async function listAllUsers(): Promise<Tipster[]> {
       orderby: 'name',
       order: 'asc',
       _fields: 'id,slug,name,avatar_urls,description',
+      [cbKey]: cbVal,
     });
     const { data, totalPages } = await fetchPage(`${WP_BASE}/wp-json/wp/v2/users?${qs}`);
     const arr: any[] = Array.isArray(data) ? data : [];
@@ -47,10 +51,13 @@ async function listAllUsers(): Promise<Tipster[]> {
   return out;
 }
 
-// Fallback: extrai autores a partir de TODOS os posts (sem limite artificial)
+// Fallback: extrai autores a partir de TODOS os posts
 async function listAuthorsFromPosts(): Promise<Tipster[]> {
   const seen = new Map<number, Tipster>();
   let page = 1;
+  const cbKey = '_';
+  const cbVal = String(Date.now());
+
   while (true) {
     const qs = new URLSearchParams({
       _embed: '1',
@@ -58,6 +65,7 @@ async function listAuthorsFromPosts(): Promise<Tipster[]> {
       page: String(page),
       orderby: 'date',
       order: 'desc',
+      [cbKey]: cbVal,
     });
     const r = await fetch(`${WP_BASE}/wp-json/wp/v2/${POST_TYPE}?${qs.toString()}`, { cache: 'no-store' });
     if (!r.ok) break;
@@ -73,6 +81,7 @@ async function listAuthorsFromPosts(): Promise<Tipster[]> {
           slug: a.slug || String(a.id),
           name: a.name || a.slug || `user-${a.id}`,
           avatar: pickAvatar(a),
+          description: a?.description || '',
         });
       }
     }
@@ -100,31 +109,40 @@ export async function GET(req: Request) {
     }
     const fromPosts = await listAuthorsFromPosts();
 
-    // Une e deduplica (por id; se id ausente, por slug)
+    // Une e deduplica (prioriza /users sobre fallback)
     const map = new Map<string, Tipster>();
-    for (const u of [...users, ...fromPosts]) {
+    for (const u of fromPosts) {
       const key = u?.id ? `id:${u.id}` : `slug:${u.slug}`;
-      if (!map.has(key)) map.set(key, u);
+      map.set(key, u); // fallback entra primeiro
     }
+    for (const u of users) {
+      const key = u?.id ? `id:${u.id}` : `slug:${u.slug}`;
+      map.set(key, u); // /users sobrepõe (nome mais recente)
+    }
+
     let items = Array.from(map.values());
 
-    // filtro opcional por q
+    // filtro opcional por q (normaliza acentos)
     if (q) {
-      items = items.filter(
-        (a) =>
-          a.name.toLowerCase().includes(q) ||
-          a.slug.toLowerCase().includes(q)
-      );
+      const qq = q.normalize('NFD').replace(/\p{Diacritic}/gu, '');
+      items = items.filter((a) => {
+        const nameN = (a.name || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+        const slugN = (a.slug || '').toLowerCase();
+        return nameN.includes(qq) || slugN.includes(qq);
+      });
     }
 
     // ordena por nome
     items.sort((a, b) => a.name.localeCompare(b.name, 'pt'));
 
-    return NextResponse.json({ items });
+    return NextResponse.json(
+      { items },
+      { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } }
+    );
   } catch (e: any) {
     return NextResponse.json(
       { error: 'Falha ao listar autores', detail: String(e?.message ?? e) },
-      { status: 502 }
+      { status: 502, headers: { 'Cache-Control': 'no-store' } }
     );
   }
 }

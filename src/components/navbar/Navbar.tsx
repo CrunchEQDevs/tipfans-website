@@ -108,18 +108,64 @@ export default function Navbar() {
     setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
   };
 
-  // 🔥 Carrega autores do WordPress e injeta no submenu TIPSTERS
+  // 🔥 Carrega autores do WordPress (sempre atualizados) e injeta no submenu TIPSTERS
   useEffect(() => {
     let cancel = false;
 
+    async function fetchWpAuthors(): Promise<{ slug: string; name: string }[]> {
+      const out: { slug: string; name: string }[] = [];
+      let page = 1;
+      while (true) {
+        const url =
+          `/wp-api/wp/v2/users?who=authors&per_page=100&page=${page}` +
+          `&orderby=name&order=asc&_fields=slug,name&_=${Date.now()}`;
+        const r = await fetch(url, { cache: 'no-store' });
+        if (!r.ok) throw new Error('wp-users-blocked');
+        const arr = (await r.json()) as any[];
+        for (const u of Array.isArray(arr) ? arr : []) {
+          const slug = String(u?.slug || '').trim();
+          const name = String(u?.name || u?.display_name || slug).trim();
+          if (slug) out.push({ slug, name });
+        }
+        // paginação via header
+        const totalPages = Number(r.headers.get('x-wp-totalpages') || '1') || 1;
+        if (page >= totalPages) break;
+        page += 1;
+      }
+      // dedupe por slug
+      const map = new Map<string, string>();
+      for (const a of out) if (!map.has(a.slug)) map.set(a.slug, a.name);
+      return Array.from(map, ([slug, name]) => ({ slug, name }));
+    }
+
     async function loadAuthors() {
       try {
+        // 1) tenta WP direto (nomes sempre atuais)
+        const fresh = await fetchWpAuthors();
+        if (cancel) return;
+        if (fresh.length) {
+          const authorsSubmenu: SubItem[] = fresh.map((a) => ({
+            label: a.name,
+            href: `/tipsters/${encodeURIComponent(a.slug)}`,
+            icon: <FaUser />,
+          }));
+          setDynamicMenu((prev) => {
+            const copy = prev.map((m) => ({ ...m, submenu: m.submenu ? [...m.submenu] : undefined }));
+            const idx = copy.findIndex((m) => m.title.toUpperCase() === 'TIPSTERS');
+            if (idx >= 0) copy[idx] = { ...copy[idx], submenu: authorsSubmenu };
+            return copy;
+          });
+          return;
+        }
+      } catch {
+        // cai pro fallback abaixo
+      }
+
+      try {
+        // 2) fallback: usa tua API e normaliza
         const r = await fetch(`/api/wp/tipsters?_=${Date.now()}`, { cache: 'no-store' });
         if (!r.ok) return;
-
         const data = await r.json();
-
-        // aceita {items:[]}, {authors:[]}, ou array cru
         const listRaw: any[] = Array.isArray(data)
           ? data
           : Array.isArray(data?.items)
@@ -128,8 +174,6 @@ export default function Navbar() {
           ? data.authors
           : [];
 
-        if (cancel || !listRaw.length) return;
-
         const items = listRaw
           .map((a) => ({
             slug: String(a?.slug || '').trim(),
@@ -137,9 +181,16 @@ export default function Navbar() {
           }))
           .filter((a) => a.slug && a.name);
 
-        if (!items.length) return;
+        if (cancel || !items.length) return;
 
-        const authorsSubmenu: SubItem[] = items.map((a) => ({
+        // dedupe e ordena por nome
+        const map = new Map<string, string>();
+        for (const a of items) map.set(a.slug, a.name);
+        const norm = Array.from(map, ([slug, name]) => ({ slug, name })).sort((a, b) =>
+          a.name.localeCompare(b.name, 'pt')
+        );
+
+        const authorsSubmenu: SubItem[] = norm.map((a) => ({
           label: a.name,
           href: `/tipsters/${encodeURIComponent(a.slug)}`,
           icon: <FaUser />,
@@ -152,7 +203,7 @@ export default function Navbar() {
           return copy;
         });
       } catch {
-        // silencioso: mantém vazio
+        // silencioso
       }
     }
 
@@ -169,7 +220,6 @@ export default function Navbar() {
       <div className="fixed top-0 inset-x-0 z-40">
         {/* Desktop */}
         <div className="hidden md:block">
-          {/* passa o menu dinâmico */}
           <NavbarDesktop
             menuItems={dynamicMenu}
             user={user}
@@ -180,7 +230,6 @@ export default function Navbar() {
 
         {/* Mobile */}
         <div className="md:hidden">
-          {/* idem no mobile */}
           <NavbarMobile
             menuItems={dynamicMenu}
             user={user}

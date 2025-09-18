@@ -16,6 +16,13 @@ type ApiResp = {
     sport: 'futebol' | 'basquete' | 'tenis' | 'esports';
     hrefPost?: string;
   }>;
+  counts?: { tips: number; articles: number };
+  stats?: {
+    winRate?: number | null;
+    avgReturn?: number | null;
+    winRateLast10?: number | null;
+    avgReturnLast10?: number | null;
+  } | null;
 };
 
 export default function TipsterProfilePage() {
@@ -27,6 +34,8 @@ export default function TipsterProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [author, setAuthor] = useState<ApiResp['author'] | null>(null);
   const [items, setItems] = useState<ApiResp['items']>([]);
+  const [counts, setCounts] = useState<ApiResp['counts'] | undefined>(undefined);
+  const [stats, setStats] = useState<ApiResp['stats'] | null | undefined>(undefined);
 
   useEffect(() => {
     let cancel = false;
@@ -44,6 +53,8 @@ export default function TipsterProfilePage() {
           setNotFound(true);
           setAuthor(null);
           setItems([]);
+          setCounts(undefined);
+          setStats(undefined);
           return;
         }
         if (!r.ok) {
@@ -54,6 +65,8 @@ export default function TipsterProfilePage() {
         if (cancel) return;
         setAuthor(data.author);
         setItems(Array.isArray(data.items) ? data.items : []);
+        setCounts(data.counts);
+        setStats(data.stats ?? null);
       } catch (e: any) {
         if (!cancel) setError(String(e?.message ?? e));
       } finally {
@@ -109,26 +122,24 @@ export default function TipsterProfilePage() {
       </div>
 
       <div className="relative mx-auto max-w-7xl px-4 pt-10 pb-14">
-        {/* Banner */}
+        {/* Banner: sem nome fictício – vazio vira skeleton */}
         <TipsterBanner
-          name={author?.name ?? slug.replace(/-/g, ' ')}
+          name={author?.name || ''}
           avatar={author?.avatar ?? null}
-          bio={author?.description ?? ''}
+          bio={author?.description || ''}
+          tipCount={counts?.tips}
+          articleCount={counts?.articles}
+          stats={stats ?? undefined}
         />
 
-        {/* Estado de carregamento/erro */}
-        {loading && (
-          <div className="mt-8 rounded-xl bg-[#1B1F2A] p-6 ring-1 ring-white/10">
-            A carregar…
-          </div>
-        )}
+        {/* Estado de erro (sem placeholders) */}
         {!!error && !loading && (
           <div className="mt-8 rounded-xl bg-[#7a1f1f] p-6 ring-1 ring-white/10">
             Erro ao carregar: {error}
           </div>
         )}
 
-        {/* Seções por categoria */}
+        {/* Seções por categoria (só aparecem quando terminou de carregar) */}
         {!loading && !error && (
           <>
             <TipsterSection
