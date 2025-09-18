@@ -91,7 +91,7 @@ export default function MestresTips() {
     <div className="rounded-2xl border border-white/10 bg-neutral-900/70 backdrop-blur-xl shadow-2xl shadow-black/30 text-center">
       <div className="border-b border-white/10 px-6 py-5">
         <h3 className="text-xl font-bold text-white">Os Mestres das Tips</h3>
-        <p className="mt-1 text-sm text-white/60">Métricas reais nas últimas 20 tips por autor.</p>
+        <p className="mt-1 text-sm text-white/60">Métricas reais nas últimas 20 tips por autor!</p>
       </div>
 
       <ul className="p-4 sm:p-6 space-y-5">
