@@ -22,7 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="scroll-smooth" suppressHydrationWarning>
       <body
         suppressHydrationWarning
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-200 dark:bg-gray-700 text-black dark:text-white transition-colors duration-500`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased  dark:bg-gray-700 text-black transition-colors duration-500`}
       >
         <AuthProvider>
           <ThemeProvider

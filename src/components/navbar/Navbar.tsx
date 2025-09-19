@@ -59,14 +59,6 @@ export const menuItems: MenuItem[] = [
     submenu: [], // será preenchido via API
   },
   {
-    title: 'DESAFIOS',
-    href: '',
-    submenu: [
-      { label: 'Página de Desafios', href: '/challenges', icon: <FaGamepad /> },
-      { label: 'Ranking de Desafios', href: '/challenges/ranking', icon: <FaGamepad /> },
-    ],
-  },
-  {
     title: 'COMUNIDADE',
     href: '',
     submenu: [{ label: 'Links das redes sociais', href: '/community', icon: <FaUser /> }],
