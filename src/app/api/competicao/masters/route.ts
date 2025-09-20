@@ -1,5 +1,9 @@
 // app/api/competicao/masters/route.ts
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import { NextResponse } from 'next/server';
+import { unstable_noStore as noStore } from 'next/cache';
 
 const WP_BASE = process.env.WP_BASE_URL ?? '';
 const POST_TYPE = (process.env.WP_POST_TYPE || 'tips').toLowerCase();
@@ -13,6 +17,16 @@ function normalizeSafe(v: unknown) {
     // @ts-ignore
     return (s.normalize ? s.normalize('NFD') : s).replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
   } catch { return s.toLowerCase().trim(); }
+}
+
+function withBuster(url: string) {
+  try {
+    const u = new URL(url);
+    u.searchParams.set('_', Date.now().toString());
+    return u.toString();
+  } catch {
+    return url + (url.includes('?') ? '&' : '?') + '_=' + Date.now();
+  }
 }
 
 function sportFromString(raw?: unknown): Sport | null {
@@ -47,38 +61,83 @@ function detectSport(p: any): Sport | null {
 }
 
 type Stat = 'win' | 'loss' | 'void';
+
+/* ========= Result & numbers (robusto) ========= */
+
 function parseNumber(x: any): number | null {
-  if (x == null) return null;
+  if (x == null || x === '') return null;
+  if (typeof x === 'boolean') return x ? 1 : 0;
   const n = Number(String(x).replace(',', '.'));
   return Number.isFinite(n) ? n : null;
 }
+
+function collectTermStrings(p: any): string[] {
+  const out: string[] = [];
+  const groups = Array.isArray(p?._embedded?.['wp:term']) ? p._embedded['wp:term'] : [];
+  for (const g of groups) {
+    for (const t of (Array.isArray(g) ? g : [])) {
+      if (t?.slug) out.push(toStr(t.slug));
+      if (t?.name) out.push(toStr(t.name));
+      if (t?.taxonomy) out.push(toStr(t.taxonomy));
+    }
+  }
+  return out;
+}
+
 function parseResult(p: any): Stat | null {
   const acf = p?.acf || {};
-  const candidates = [
+
+  // 1) códigos numéricos comuns
+  const numericCandidates = [
+    acf.result_code, acf.results_code, acf.status_code, acf.outcome_code,
+    acf.resultado_code, acf.estado_code, p?.result_code, p?.status_code,
+    acf.win, acf.loss, acf.void, acf.push,
+  ].map(parseNumber).filter((n) => n !== null) as number[];
+
+  for (const n of numericCandidates) {
+    if (n === 1)  return 'win';
+    if (n === -1) return 'loss';
+    if (n === 0 || n === 2) return 'void';
+  }
+
+  // 2) booleanos explícitos
+  if (acf?.win === true)  return 'win';
+  if (acf?.loss === true) return 'loss';
+  if (acf?.void === true || acf?.push === true) return 'void';
+
+  // 3) strings + termos embarcados
+  const stringCandidates = [
     acf.result, acf.results, acf.status, acf.outcome, acf.resultado, acf.estado,
+    acf.situacao, acf.situacao_da_aposta, acf.pick_status, acf.status_tip,
     p?.result, p?.status,
-  ].map((v: any) => (typeof v === 'string' ? normalizeSafe(v) : ''));
-  for (const v of candidates) {
-    if (!v) continue;
-    if (/(green|win|acert|ganh|vitoria|vit[oó]ria)/.test(v)) return 'win';
-    if (/(red|loss|perd|derrot|fraca)/.test(v)) return 'loss';
-    if (/(void|push|cancel|reemb|anul)/.test(v)) return 'void';
+    ...collectTermStrings(p),
+  ].map((v: any) => (typeof v === 'string' ? normalizeSafe(v) : '')).filter(Boolean);
+
+  for (const s of stringCandidates) {
+    if (/(green|win|acert|ganh|vitoria|vit[oó]ria|won|g[ai]n(h)?a?)/.test(s)) return 'win';
+    if (/(red|loss|perd|derrot|lost|frac(a)?)/.test(s))                 return 'loss';
+    if (/(void|push|cancel|reemb|anul|nula|anulada|cancelada)/.test(s)) return 'void';
   }
   return null;
 }
+
 function inferReturn(p: any, res: Stat | null): { profit: number | null, stake: number | null } {
   const acf = p?.acf || {};
   const direct = parseNumber(acf.return) ?? parseNumber(acf.retorno) ?? parseNumber(acf.yield) ?? null;
   const stake = parseNumber(acf.stake) ?? parseNumber(acf.unidade) ?? parseNumber(acf.unidades) ?? 1;
-  const odds = parseNumber(acf.odds) ?? parseNumber(acf.odd) ?? parseNumber(acf.cotacao) ?? parseNumber(acf.cota) ?? parseNumber(acf.cuota) ?? null;
+  const odds =
+    parseNumber(acf.odds) ?? parseNumber(acf.odd) ?? parseNumber(acf.cotacao) ??
+    parseNumber(acf.cota) ?? parseNumber(acf.cuota) ?? null;
 
-  if (direct != null) return { profit: direct, stake };
+  if (direct != null) return { profit: direct, stake: stake ?? 1 };
   if (stake == null || res == null) return { profit: null, stake: null };
   if (res === 'void') return { profit: 0, stake: 0 };
   if (res === 'win' && odds != null) return { profit: (odds - 1) * stake, stake };
   if (res === 'loss') return { profit: -stake, stake };
   return { profit: null, stake: null };
 }
+
+/* ========= Avatar & fetch ========= */
 
 function toFullAvatar(url?: string | null) {
   if (!url) return null;
@@ -93,7 +152,7 @@ function toFullAvatar(url?: string | null) {
 }
 
 async function fetchJson(url: string) {
-  const r = await fetch(url, { cache: 'no-store' });
+  const r = await fetch(withBuster(url), { cache: 'no-store', next: { revalidate: 0 }, headers: { Accept: 'application/json' } });
   if (!r.ok) {
     const t = await r.text().catch(() => '');
     throw new Error(`HTTP ${r.status} ${t}`);
@@ -127,10 +186,17 @@ async function fetchUserDetails(id: number) {
 async function listAuthorsViaUsers() {
   const out: any[] = [];
   let page = 1;
-  const cb = `_=${Date.now()}`;
   while (true) {
-    const url = `${WP_BASE}/wp-json/wp/v2/users?who=authors&per_page=100&page=${page}&orderby=name&order=asc&_fields=id,slug,name,avatar_urls,simple_local_avatar&${cb}`;
-    const r = await fetch(url, { cache: 'no-store' });
+    const u = new URL(`${WP_BASE}/wp-json/wp/v2/users`);
+    u.searchParams.set('who', 'authors');
+    u.searchParams.set('per_page', '100');
+    u.searchParams.set('page', String(page));
+    u.searchParams.set('orderby', 'name');
+    u.searchParams.set('order', 'asc');
+    u.searchParams.set('_fields', 'id,slug,name,avatar_urls,simple_local_avatar');
+    u.searchParams.set('_', Date.now().toString());
+
+    const r = await fetch(u.toString(), { cache: 'no-store', next: { revalidate: 0 } });
     if (!r.ok) break;
     const arr = await r.json();
     out.push(...(Array.isArray(arr) ? arr : []));
@@ -160,15 +226,15 @@ async function listAuthorsFromPosts(maxPages = 10) {
   const seen = new Map<number, { id: number; slug: string; name: string; avatar: string | null }>();
   let page = 1;
   while (page <= maxPages) {
-    const qs = new URLSearchParams({
-      _embed: '1',
-      per_page: '100',
-      page: String(page),
-      orderby: 'date',
-      order: 'desc',
-    });
-    const url = `${WP_BASE}/wp-json/wp/v2/${POST_TYPE}?${qs.toString()}`;
-    const r = await fetch(url, { cache: 'no-store' });
+    const u = new URL(`${WP_BASE}/wp-json/wp/v2/${POST_TYPE}`);
+    u.searchParams.set('_embed', '1');
+    u.searchParams.set('per_page', '100');
+    u.searchParams.set('page', String(page));
+    u.searchParams.set('orderby', 'date');
+    u.searchParams.set('order', 'desc');
+    u.searchParams.set('_', Date.now().toString());
+
+    const r = await fetch(u.toString(), { cache: 'no-store', next: { revalidate: 0 } });
     if (!r.ok) break;
     const totalPages = Number(r.headers.get('x-wp-totalpages') || '1') || 1;
     const data = await r.json();
@@ -216,16 +282,17 @@ async function fetchPostsPaged(authorId: number, cutoffISO?: string, maxPages = 
   let page = 1;
   let keep = true;
   while (keep && page <= maxPages) {
-    const qs = new URLSearchParams({
-      _embed: '1',
-      per_page: '100',
-      page: String(page),
-      orderby: 'date',
-      order: 'desc',
-      author: String(authorId),
-    });
-    const url = `${WP_BASE}/wp-json/wp/v2/${POST_TYPE}?${qs.toString()}`;
-    const r = await fetch(url, { cache: 'no-store' });
+    const u = new URL(`${WP_BASE}/wp-json/wp/v2/${POST_TYPE}`);
+    u.searchParams.set('_embed', '1');
+    u.searchParams.set('per_page', '100');
+    u.searchParams.set('page', String(page));
+    u.searchParams.set('orderby', 'date');
+    u.searchParams.set('order', 'desc');
+    u.searchParams.set('author', String(authorId));
+    if (cutoffISO) u.searchParams.set('after', cutoffISO);
+    u.searchParams.set('_', Date.now().toString());
+
+    const r = await fetch(u.toString(), { cache: 'no-store', next: { revalidate: 0 } });
     if (!r.ok) break;
     const data = (await r.json()) as any[];
     if (!Array.isArray(data) || data.length === 0) break;
@@ -243,17 +310,23 @@ async function fetchPostsPaged(authorId: number, cutoffISO?: string, maxPages = 
 }
 
 async function fetchTotalByAuthor(typeSlug: string, authorId: number) {
-  const qs = new URLSearchParams({ per_page: '1', author: String(authorId) });
-  const r = await fetch(`${WP_BASE}/wp-json/wp/v2/${typeSlug}?${qs}`, { cache: 'no-store' });
+  const u = new URL(`${WP_BASE}/wp-json/wp/v2/${typeSlug}`);
+  u.searchParams.set('per_page', '1');
+  u.searchParams.set('author', String(authorId));
+  u.searchParams.set('_', Date.now().toString());
+
+  const r = await fetch(u.toString(), { cache: 'no-store', next: { revalidate: 0 } });
   if (!r.ok) return 0;
   const total = Number(r.headers.get('x-wp-total') || '0');
   return Number.isFinite(total) ? total : 0;
 }
 
 export async function GET(req: Request) {
+  noStore();
+
   try {
     if (!WP_BASE) {
-      return NextResponse.json({ error: 'WP_BASE_URL não definido' }, { status: 500 });
+      return NextResponse.json({ error: 'WP_BASE_URL não definido' }, { status: 500, headers: { 'Cache-Control': 'no-store' } });
     }
 
     const url = new URL(req.url);
@@ -271,13 +344,22 @@ export async function GET(req: Request) {
       if (Number.isFinite(n) && n > 0) periodDays = n;
     }
 
-    // 1) Autores
-    let authors = await listAuthors();
-    if (onlySlugs) {
-      authors = authors.filter(a => onlySlugs.has(String(a.slug || '').toLowerCase()));
-    }
+    // 1) Autores (sem fantasmas)
+    let authors = (await listAuthors()).filter(a => a && a.id && a.slug);
+    if (onlySlugs) authors = authors.filter(a => onlySlugs.has(String(a.slug || '').toLowerCase()));
     if (!authors.length) {
-      return NextResponse.json({ items: [] }, { headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json(
+        { items: [] },
+        {
+          headers: {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            Pragma: 'no-cache',
+            Expires: '0',
+            'Surrogate-Control': 'no-store',
+            Vary: 'Accept-Encoding, *',
+          },
+        }
+      );
     }
 
     // 2) Coleta posts (com cutoff se houver período)
@@ -286,7 +368,7 @@ export async function GET(req: Request) {
     const results = await Promise.all(
       authors.map(async (a) => {
         const postsAll = await fetchPostsPaged(a.id, cutoffISO, 10);
-        // filtra por período (se houver) e esporte (se tiver)
+
         const postsByPeriod = cutoffISO
           ? postsAll.filter(p => new Date(p?.date ?? 0).getTime() >= new Date(cutoffISO).getTime())
           : postsAll;
@@ -303,16 +385,23 @@ export async function GET(req: Request) {
         let stakeSum = 0, profitSum = 0;
         const sportsSet = new Set<Sport>();
         let lastDate: string | undefined;
+        let latestTS = 0;
 
         for (const p of posts) {
           const res = parseResult(p);
-          if (res === 'win') win++; else if (res === 'loss') loss++; else if (res === 'void') vvoid++;
+          if (res === 'win') win++;
+          else if (res === 'loss') loss++;
+          else if (res === 'void') vvoid++;
+
           const { profit, stake } = inferReturn(p, res);
           if (typeof stake === 'number') stakeSum += stake;
           if (typeof profit === 'number') profitSum += profit;
+
           const sp = detectSport(p);
           if (sp) sportsSet.add(sp);
-          if (!lastDate) lastDate = p?.date ?? undefined;
+
+          const ts = p?.date ? new Date(p.date).getTime() : 0;
+          if (ts > latestTS) { latestTS = ts; lastDate = p?.date ?? lastDate; }
         }
 
         const settled = win + loss + vvoid;
@@ -344,19 +433,48 @@ export async function GET(req: Request) {
     );
 
     const score = (r: any) => (order === 'hit' ? r.stats.hitPct : r.stats.roiPct);
-    const ordered = results
+
+    // Remove autores “fantasmas”: sem conteúdo/estatística
+    const cleaned = results.filter(r =>
+      r?.author?.id &&
+      r?.author?.slug &&
+      (
+        (r.counts?.tips ?? 0) > 0 ||
+        (r.counts?.articles ?? 0) > 0 ||
+        (r.stats?.settledCount ?? 0) > 0
+      )
+    );
+
+    const ordered = cleaned
       .slice()
       .sort((a, b) => (score(b) ?? -Infinity) - (score(a) ?? -Infinity))
       .slice(0, limit);
 
     return NextResponse.json(
       { items: ordered },
-      { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0' } }
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          Pragma: 'no-cache',
+          Expires: '0',
+          'Surrogate-Control': 'no-store',
+          Vary: 'Accept-Encoding, *',
+        },
+      }
     );
   } catch (e: any) {
     return NextResponse.json(
       { error: 'Falha ao calcular ranking', detail: String(e?.message ?? e) },
-      { status: 502, headers: { 'Cache-Control': 'no-store' } }
+      {
+        status: 502,
+        headers: {
+          'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+          Pragma: 'no-cache',
+          Expires: '0',
+          'Surrogate-Control': 'no-store',
+        },
+      }
     );
   }
 }

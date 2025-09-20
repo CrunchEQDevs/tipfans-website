@@ -231,7 +231,7 @@ export default function Hero() {
                 <div className="mt-2">
                   <Link
                     href={news[0].href || '/latest/futebol'}
-                    className="inline-block bg-orange-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-orange-700"
+                    className="inline-block px-4 py-2 text-sm font-semibold text-white transition rounded bg-[#ED4F00] hover:bg-white/20"
                   >
                     Ver mais
                   </Link>
@@ -296,7 +296,7 @@ export default function Hero() {
                       <div className="pt-3">
                         <Link
                           href={item.href || '/latest/futebol'}
-                          className="inline-block bg-orange-600 px-4 py-2 text-xs sm:text-sm font-semibold text-white transition hover:bg-orange-700"
+                          className="inline-block px-4 py-2 text-xs sm:text-sm font-semibold text-white transition rounded bg-[#ED4F00] hover:bg-white/20"
                         >
                           Ver mais
                         </Link>

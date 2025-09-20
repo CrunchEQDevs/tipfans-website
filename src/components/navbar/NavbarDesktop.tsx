@@ -95,7 +95,7 @@ export default function NavbarDesktop({
                               href={sub.href}
                               className="group flex items-center gap-3 rounded-xl px-3 py-3 text-white/90 hover:bg-white/10"
                             >
-                              <span className="grid h-8 w-8 place-items-center rounded-lg bg-orange-600 text-white">
+                              <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#ED4F00] text-white">
                                 <span className="text-[16px] leading-none [&_svg]:align-middle">
                                   {sub.icon}
                                 </span>
@@ -166,7 +166,7 @@ export default function NavbarDesktop({
                 </button>
                 <Link
                   href="/registro"
-                  className="bg-[#ff4500] hover:bg-gray-700 font-bold transition px-4 py-1.5 text-white rounded text-xl"
+                  className="bg-[#ED4F00] hover:bg-gray-700 font-bold transition px-4 py-1.5 text-white rounded text-xl"
                 >
                   Registar
                 </Link>

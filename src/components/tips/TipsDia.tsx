@@ -1,3 +1,4 @@
+// src/components/tipsdodia/TipsDia.tsx
 'use client';
 
 import Image from 'next/image';
@@ -7,6 +8,7 @@ import TipsDiaDesktop from './desktop/TipsDiaDesktop';
 import TipsDiaMobile from './mobile/TipsDiaMobile';
 import type { TipCard } from './types';
 
+/* ====== Navegação por categorias (links reais) ====== */
 const TOP_LINKS = [
   { label: 'Futebol',   href: '/tips/futebol' },
   { label: 'Ténis',     href: '/tips/tenis' },
@@ -15,7 +17,7 @@ const TOP_LINKS = [
   { label: 'Ver todas', href: '/tips/todas' },
 ];
 
-// normalização segura
+/* ====== Utils ====== */
 function normSafe(v: unknown) {
   const s = v == null ? '' : String(v);
   try {
@@ -51,7 +53,7 @@ function formatPt(dateIso?: string) {
 }
 async function fetchJson(url: string) {
   const u = new URL(url, window.location.origin);
-  u.searchParams.set('_', String(Date.now()));
+  u.searchParams.set('_', String(Date.now())); // cache-buster
   const r = await fetch(u.toString(), { cache: 'no-store' });
   const ct = r.headers.get('content-type') || '';
   if (!ct.includes('application/json')) throw new Error(`HTTP ${r.status}`);
@@ -66,8 +68,40 @@ function ts(it?: { createdAt?: string; id?: string | number }) {
   return Number.isFinite(idNum) ? idNum : -Infinity;
 }
 
-export default function TipsDia({ tips }: { tips?: TipCard[] }) {
-  const [fetched, setFetched] = useState<TipCard[]>([]);
+/* ====== Skeletons (desktop e mobile) ====== */
+function SkeletonCard({ wide = false }: { wide?: boolean }) {
+  return (
+    <div className={`rounded-lg bg-white/5 overflow-hidden animate-pulse ${wide ? 'h-[280px]' : ''}`}>
+      <div className="w-full aspect-[16/9] bg-white/10" />
+      <div className="p-4 space-y-3">
+        <div className="h-5 w-3/4 bg-white/15 rounded" />
+        <div className="h-4 w-1/2 bg-white/10 rounded" />
+      </div>
+    </div>
+  );
+}
+function SkeletonDesktop() {
+  return (
+    <div className="grid grid-cols-3 gap-6">
+      {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+    </div>
+  );
+}
+function SkeletonMobile() {
+  return (
+    <div className="flex gap-4 overflow-x-auto no-scrollbar">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="min-w-[260px] max-w-[260px]">
+          <SkeletonCard wide />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ====== Componente ====== */
+export default function TipsDia() {
+  const [items, setItems] = useState<TipCard[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -75,14 +109,15 @@ export default function TipsDia({ tips }: { tips?: TipCard[] }) {
     (async () => {
       try {
         setLoading(true);
-        // busca todas as tips de todos os desportos (mais recentes primeiro)
+        // 100% dinâmico: busca do WP (todas as tips, todos os desportos, mais recentes primeiro)
         const json = await fetchJson('/api/wp/tips?per_page=all&sport=all&orderby=date&order=desc');
-        const items: any[] = Array.isArray(json?.items) ? json.items : [];
+        const rows: any[] = Array.isArray(json?.items) ? json.items : [];
 
-        const mapped: TipCard[] = items.map((p: any) => {
+        const mapped: TipCard[] = rows.map((p: any) => {
           const sport = toSportSlug(p.sport);
           const text = htmlToText(p.excerpt || '');
           const resumo = text.slice(0, 200);
+
           return {
             id: p.id,
             title: p.title ?? '',
@@ -103,12 +138,10 @@ export default function TipsDia({ tips }: { tips?: TipCard[] }) {
           };
         });
 
-        // garante mais recente primeiro
-        const ordered = [...mapped].sort((a, b) => ts(b) - ts(a));
-
-        if (!cancel) setFetched(ordered);
+        const ordered = mapped.sort((a, b) => ts(b) - ts(a));
+        if (!cancel) setItems(ordered);
       } catch {
-        if (!cancel) setFetched([]);
+        if (!cancel) setItems([]); // sem dados; continuará sem “fakes”
       } finally {
         if (!cancel) setLoading(false);
       }
@@ -116,22 +149,23 @@ export default function TipsDia({ tips }: { tips?: TipCard[] }) {
     return () => { cancel = true; };
   }, []);
 
-  // prioriza os dados dinâmicos; se falhar, usa o prop do server (também ordenado)
-  const items: TipCard[] = useMemo(() => {
-    const base: TipCard[] = (fetched.length ? fetched : (tips || [])).slice();
-    base.sort((a, b) => ts(b) - ts(a)); // ordena fallback do server também
+  // chave para reiniciar carrossel sempre no mais recente
+  const firstKey = `first-${items[0]?.id ?? 'none'}`;
+
+  // memo apenas para garantir ordenação (caso futuro)
+  const tipsSorted = useMemo(() => {
+    const base = items.slice();
+    base.sort((a, b) => ts(b) - ts(a));
+    // garante href válido
     return base.map((t) => ({
       ...t,
       href: t.href ?? (t as any).hrefPost ?? `/tips/${toSportSlug(t.sport)}/${t.id}`,
     }));
-  }, [fetched, tips]);
-
-  // chave que força o carrossel a reiniciar no slide 0 quando o "mais recente" muda
-  const firstKey = `first-${items[0]?.id ?? 'none'}`;
+  }, [items]);
 
   return (
     <section className="relative w-full bg-[#1E1E1E] py-10 overflow-hidden">
-      {/* BG desktop decor */}
+      {/* BG desktop decor (opcional; não é dado fictício) */}
       <div className="pointer-events-none absolute left-0 top-4 hidden md:block opacity-90">
         <Image
           src="/tips/TIPS_menu.png"
@@ -144,20 +178,17 @@ export default function TipsDia({ tips }: { tips?: TipCard[] }) {
         />
       </div>
 
- 
-
       <div className="container mx-auto px-4">
         {/* Cabeçalho */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
-          <h2 className="text-3xl font-bold text-white">Tips do Dia</h2>
-          
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-white">Tips do Dia</h1>
 
           <div className="flex flex-wrap items-center gap-2">
             {TOP_LINKS.map((b) => (
               <Link
                 key={b.label}
                 href={b.href}
-                className="inline-flex items-center rounded-lg bg-[#ED4F00] hover:bg白/20 text-white text-sm font-semibold px-3 py-1.5 transition"
+                className="inline-flex items-center rounded bg-[#ED4F00] hover:bg-white/20 text-white text-sm font-semibold px-3 py-1.5 transition"
               >
                 {b.label}
               </Link>
@@ -167,17 +198,21 @@ export default function TipsDia({ tips }: { tips?: TipCard[] }) {
 
         {/* Desktop */}
         <div className="hidden md:block">
-          <TipsDiaDesktop key={`desktop-${firstKey}`} tips={items} />
+          {loading ? (
+            <SkeletonDesktop />
+          ) : (
+            <TipsDiaDesktop key={`desktop-${firstKey}`} tips={tipsSorted} />
+          )}
         </div>
 
         {/* Mobile */}
         <div className="md:hidden">
-          <TipsDiaMobile key={`mobile-${firstKey}`} tips={items} />
+          {loading ? (
+            <SkeletonMobile />
+          ) : (
+            <TipsDiaMobile key={`mobile-${firstKey}`} tips={tipsSorted} />
+          )}
         </div>
-
-        {!fetched.length && loading && (
-          <div className="mt-4 text-sm text-gray-400">a carregar…</div>
-        )}
       </div>
     </section>
   );

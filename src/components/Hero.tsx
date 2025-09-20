@@ -10,7 +10,6 @@ import { fetchHeroSlides, type HeroSlide } from '@/lib/fetchHeroSlides'
 type Sport = 'futebol' | 'basquete' | 'tenis' | 'esports'
 const SPORT_DEFAULT: Sport = 'futebol'
 
-/* === helpers p/ gerar /latest/{sport}/{id}-{slug} e nunca /tips === */
 function toSlug(s: string): string {
   return (s || '')
     .normalize('NFD')
@@ -33,23 +32,16 @@ function lastPathSlug(u: unknown): string {
 
 function buildNewsHref(s?: HeroSlide): string {
   if (!s) return `/latest/${SPORT_DEFAULT}`
-
   const anyS = s as any
   const sport: string = anyS?.categorySlug || anyS?.sport || SPORT_DEFAULT
 
-  // 1) Se já vier um link /latest/... da API, usa-o.
-  const candidate = [anyS?.hrefPost, anyS?.href].find(
-    (h: unknown) => typeof h === 'string' && h.startsWith('/latest/')
-  )
+  // Se a API já mandou um /latest/... pronto, usa.
+  const candidate = [anyS?.hrefPost, anyS?.href]
+    .find((h: unknown) => typeof h === 'string' && h.startsWith('/latest/'))
   if (candidate) return candidate as string
 
-  // 2) Caso contrário, monta /latest/{sport}/{id}-{slug}
-  const idLike =
-    anyS?.id ??
-    anyS?.postId ??
-    anyS?.wpId ??
-    ''
-
+  // Monta /latest/{sport}/{id}-{slug}
+  const idLike = anyS?.id ?? anyS?.postId ?? anyS?.wpId ?? ''
   const slug =
     anyS?.slug ||
     anyS?.wpSlug ||
@@ -76,7 +68,10 @@ export default function Hero2() {
     ;(async () => {
       try {
         const data = await fetchHeroSlides(3) // per_page=3&orderby=date&order=desc
-        if (alive) setSlides(Array.isArray(data) ? data : [])
+        if (alive) {
+          setSlides(Array.isArray(data) ? data : [])
+          setIndex(0) // começa sempre no mais recente
+        }
       } catch {
         if (alive) setSlides([])
       }
@@ -86,20 +81,27 @@ export default function Hero2() {
 
   // autoplay
   useEffect(() => {
-    const size = Math.max(slides.length, 1)
-    const t = setInterval(() => setIndex(prev => (prev + 1) % size), 7000)
+    if (!slides.length) return
+    const t = setInterval(() => setIndex(prev => (prev + 1) % slides.length), 7000)
     return () => clearInterval(t)
   }, [slides.length])
 
   const active = useMemo(() => slides, [slides])
-  const cur = active[index % Math.max(active.length, 1)]
-  const targetHref = buildNewsHref(cur)
+  const size = Math.max(active.length, 1)
+  const cur = active[index % size]
 
-  // Bullets (3 placeholders se ainda carregando)
+  // Sempre abrir o MAIS RECENTE no botão/overlay
+  const latestHref = buildNewsHref(active[0])
+
+  // Bullets (3 placeholders enquanto carrega)
   const bullets = active.length ? active : Array.from({ length: 3 })
 
   return (
-    <section className="relative w-full h-[56vh] sm:h-[58vh] md:h-[60vh] lg:h-[90vh] 2xl:h-[90vh] overflow-hidden bg-black">
+    <section
+      className="relative w-full h-[56vh] sm:h-[58vh] md:h-[60vh] lg:h-[90vh] 2xl:h-[90vh] overflow-hidden bg-black"
+      aria-roledescription="carousel"
+      aria-label="Destaques"
+    >
       <AnimatePresence initial={false} mode="wait">
         <motion.div
           key={cur?.title || 'skeleton'}
@@ -107,7 +109,7 @@ export default function Hero2() {
           transition={{ duration: 0.8 }}
           className="absolute inset-0 w-full h-full"
         >
-          {/* Imagem do slide (só se houver) */}
+          {/* Imagem do slide */}
           {cur?.image && (
             <Image
               src={cur.image}
@@ -119,11 +121,11 @@ export default function Hero2() {
             />
           )}
 
-          {/* Gradiente de base */}
+          {/* Gradiente de base (não bloqueia clique) */}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-80 sm:h-96 bg-gradient-to-t from-black/90 to-transparent z-10" />
 
-          {/* Bloco de texto à esquerda */}
-          <div className="absolute inset-0 z-20 flex items-end justify-start pb-12 sm:pb-16 lg:pb-10">
+          {/* Texto + botão */}
+          <div className="absolute inset-0 z-30 flex items-end justify-start pb-12 sm:pb-16 lg:pb-10">
             <div className="w-full max-w-6xl mx-0 sm:mx-4 md:mx-8 lg:mx-12 xl:mx-40 px-4 sm:px-6 md:px-8">
               <div className="p-6 sm:p-8 md:p-10 rounded-lg text-left">
                 {/* TÍTULO / SKELETON */}
@@ -150,12 +152,13 @@ export default function Hero2() {
                   </p>
                 ) : null}
 
-                {/* BOTÃO / SKELETON */}
+                {/* BOTÃO abre SEMPRE o último artigo */}
                 {loading ? (
-                  <div className="mt-6 h-10 md:h-12 w-40 md:w-48 bg-[#ED4F00]/70 rounded animate-pulse" />
+                  <div className="mt-6 h-10 md:h-12 w-40 md:w-48 bg-[#ED4F00]/70 rounded-md animate-pulse" />
                 ) : (
                   <Link
-                    href={targetHref}
+                    href={latestHref}
+                    prefetch={false}
                     className="mt-6 inline-block px-5 py-2 md:px-6 md:py-3 bg-[#ED4F00] text-white text-base sm:text-lg md:text-xl xl:text-2xl 2xl:text-3xl font-semibold rounded hover:opacity-90 transition"
                     aria-label={`Saiba mais: ${cur?.title ?? 'Notícia'}`}
                   >
@@ -166,27 +169,38 @@ export default function Hero2() {
             </div>
           </div>
 
-          {/* Link overlay (desativado enquanto carrega) */}
-          <Link
-            href={targetHref}
-            aria-label="Abrir página"
-            className={`absolute inset-0 z-30 ${loading ? 'pointer-events-none' : ''}`}
-          />
+          {/* Overlay clicável — fica ABAIXO dos bullets (z-20) e ACIMA do gradiente (z-10) */}
+          {!loading && (
+            <Link
+              href={latestHref}
+              prefetch={false}
+              aria-label="Abrir notícia mais recente"
+              className="absolute inset-0 z-20"
+            >
+              <span className="sr-only">Abrir notícia mais recente</span>
+            </Link>
+          )}
         </motion.div>
       </AnimatePresence>
 
-      {/* Bullets */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3 z-30">
-        {bullets.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => !loading && setIndex(i)}
-            aria-label={`Ir para slide ${i + 1}`}
-            className={`h-1 w-4 rounded-full transition-all duration-300 ${
-              !loading && i === index ? 'bg-[#ED4F00] w-8' : 'bg-gray-400'
-            } ${loading ? 'pointer-events-none opacity-60' : ''}`}
-          />
-        ))}
+      {/* Bullets (funcionam manual + feedback ativo maior) */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex gap-3 z-40">
+        {bullets.map((_, i) => {
+          const isActive = !loading && i === index
+          return (
+            <button
+              key={i}
+              onClick={() => !loading && setIndex(i)}
+              aria-label={`Ir para slide ${i + 1}`}
+              aria-current={isActive ? 'true' : undefined}
+              className={[
+                'transition-all duration-300 rounded-full',
+                loading ? 'pointer-events-none opacity-60' : '',
+                isActive ? 'h-1.5 w-10 bg-[#ED4F00]' : 'h-1 w-4 bg-gray-400'
+              ].join(' ')}
+            />
+          )
+        })}
       </div>
     </section>
   )

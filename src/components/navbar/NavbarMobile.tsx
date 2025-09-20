@@ -152,7 +152,7 @@ export default function NavbarMobile({
                               onClick={() => setMobileOpen(false)}
                               className="flex items-center gap-2 rounded-lg px-3 py-2 hover:bg-white/10"
                             >
-                              <span className="grid h-7 w-7 place-items-center rounded text-[#FF4500]">
+                              <span className="grid h-7 w-7 place-items-center rounded text-[#ED4F00]">
                                 <span className="text-[16px] leading-none [&_svg]:align-middle">
                                   {sub.icon}
                                 </span>
@@ -217,7 +217,7 @@ export default function NavbarMobile({
                 <Link
                   href="/registro"
                   onClick={() => setMobileOpen(false)}
-                  className="flex-1 text-center bg-[#ff4500] hover:bg-gray-700 font-bold transition px-4 py-2 text-white text-sm rounded"
+                  className="flex-1 text-center bg-[#ED4F00] hover:bg-gray-700 font-bold transition px-4 py-2 text-white text-sm rounded"
                 >
                   Registar
                 </Link>

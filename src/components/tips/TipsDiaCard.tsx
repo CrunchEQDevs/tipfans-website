@@ -48,7 +48,7 @@ export default function TipsDiaCard({ tip, className }: Props) {
         <div className="absolute top-2 left-0 flex items-center">
           <span
             aria-hidden
-            className="w-0 h-0 border-y-[10px] border-y-transparent border-r-[12px] border-r-orange-500 -ml-2"
+            className="w-0 h-0 border-y-[10px] border-y-transparent border-r-[12px] rounded-lg border-r-orange-500 -ml-2"
           />
           <span className="rounded-sm bg-blue-700 px-3 py-1 text-xs font-semibold text-white shadow">
             {categoria}
@@ -77,7 +77,7 @@ export default function TipsDiaCard({ tip, className }: Props) {
       <CardFooter className="pt-0 flex gap-2">
         <Link
           href={postHref}
-          className="inline-flex items-center rounded-lg bg-[#ED4F00] hover:bg-white/20 text-white text-sm font-semibold px-3 py-1.5 transition"
+          className="inline-flex items-center rounded bg-[#ED4F00] hover:bg-white/20 text-white text-sm font-semibold px-3 py-1.5 transition"
         >
           Ver mais
         </Link>

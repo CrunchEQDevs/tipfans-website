@@ -48,9 +48,6 @@ export const menuItems: MenuItem[] = [
       { label: 'Ténis', href: '/tips/tenis', icon: <FaTableTennisPaddleBall /> },
       { label: 'Basquete', href: '/tips/basquete', icon: <FaBasketballBall /> },
       { label: 'Esports', href: '/tips/esports', icon: <FaGamepad /> },
-      { label: 'Dicas de Hoje', href: '/tips/dicas/futebol?when=today', icon: <FaFutbol /> },
-      { label: 'Dicas de Amanhã', href: '/tips/dicas/futebol?when=tomorrow', icon: <FaFutbol /> },
-      { label: 'Em Breve', href: '/tips/dicas/futebol?when=soon', icon: <FaFutbol /> },
     ],
   },
   {
@@ -60,8 +57,8 @@ export const menuItems: MenuItem[] = [
   },
   {
     title: 'COMUNIDADE',
-    href: '',
-    submenu: [{ label: 'Links das redes sociais', href: '/community', icon: <FaUser /> }],
+    href: '/community',
+    // sem "submenu" para evitar dropdown e garantir navegação direta
   },
 ];
 
@@ -89,6 +86,13 @@ export default function Navbar() {
     router.replace(pathname || '/', { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  // (Opcional) também permite abrir o login via CustomEvent('open-login')
+  useEffect(() => {
+    const onOpen = () => setLoginOpen(true);
+    document.addEventListener('open-login' as any, onOpen);
+    return () => document.removeEventListener('open-login' as any, onOpen);
+  }, []);
 
   const openLogin = (tab: 'login' | 'register' = 'login') => {
     setLoginTab(tab);
@@ -119,12 +123,10 @@ export default function Navbar() {
           const name = String(u?.name || u?.display_name || slug).trim();
           if (slug) out.push({ slug, name });
         }
-        // paginação via header
         const totalPages = Number(r.headers.get('x-wp-totalpages') || '1') || 1;
         if (page >= totalPages) break;
         page += 1;
       }
-      // dedupe por slug
       const map = new Map<string, string>();
       for (const a of out) if (!map.has(a.slug)) map.set(a.slug, a.name);
       return Array.from(map, ([slug, name]) => ({ slug, name }));
@@ -132,7 +134,6 @@ export default function Navbar() {
 
     async function loadAuthors() {
       try {
-        // 1) tenta WP direto (nomes sempre atuais)
         const fresh = await fetchWpAuthors();
         if (cancel) return;
         if (fresh.length) {
@@ -150,11 +151,10 @@ export default function Navbar() {
           return;
         }
       } catch {
-        // cai pro fallback abaixo
+        // fallback abaixo
       }
 
       try {
-        // 2) fallback: usa tua API e normaliza
         const r = await fetch(`/api/wp/tipsters?_=${Date.now()}`, { cache: 'no-store' });
         if (!r.ok) return;
         const data = await r.json();
@@ -175,7 +175,6 @@ export default function Navbar() {
 
         if (cancel || !items.length) return;
 
-        // dedupe e ordena por nome
         const map = new Map<string, string>();
         for (const a of items) map.set(a.slug, a.name);
         const norm = Array.from(map, ([slug, name]) => ({ slug, name })).sort((a, b) =>

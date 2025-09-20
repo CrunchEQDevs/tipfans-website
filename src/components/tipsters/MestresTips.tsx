@@ -61,6 +61,7 @@ export default function MestresTips() {
   // animação da barra
   const [animateBars, setAnimateBars] = useState(false);
 
+  // fetch sempre dinâmico (no-store + cache-buster)
   useEffect(() => {
     let cancel = false;
     (async () => {
@@ -75,7 +76,7 @@ export default function MestresTips() {
         u.searchParams.set('sport', sport);
         u.searchParams.set('last', String(last));
         u.searchParams.set('limit', '6');
-        u.searchParams.set('_', String(Date.now()));
+        u.searchParams.set('_', String(Date.now())); // força atualização
 
         const r = await fetch(u.toString(), { cache: 'no-store' });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -90,7 +91,9 @@ export default function MestresTips() {
         }
       }
     })();
-    return () => { cancel = true; };
+    return () => {
+      cancel = true;
+    };
   }, [order, period, sport, last]);
 
   // helpers estáveis
@@ -135,7 +138,7 @@ export default function MestresTips() {
     <span className={`inline-block animate-pulse rounded bg-white/10 ${className}`} />
   );
   const SkeletonRow = () => (
-    <li className="rounded-xl ring-1 ring-white/10 bg-[#1B1F2A] p-4">
+    <li className="rounded-xl ring-1 ring-white/10 bg-[#1B1F2A]/80 backdrop-blur-sm p-4">
       <div className="flex items-start gap-4">
         <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-xl bg-white/10" />
         <div className="min-w-0 flex-1">
@@ -156,217 +159,249 @@ export default function MestresTips() {
   // ícone troféu
   const Trophy = ({ className = '' }: { className?: string }) => (
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true" role="img" focusable="false">
-      <path d="M6 3h12v2h2a1 1 0 0 1 1 1v1a5 5 0 0 1-5 5h-1.1A5.002 5.002 0 0 1 12 15a5.002 5.002 0 0 1-2.9-2H8a5 5 0 0 1-5-5V6a1 1 0 0 1 1-1h2V3Zm12 4V6h2v1a3 3 0 0 1-3 3h-1.1c.067-.32.1-.65.1-1V7Zm-12 0v2c0 .35.033.68.1 1H5a3 3 0 0 1-3-3V6h2v1Zm6 10c1.657 0 3 1.343 3 3v1H9v-1c0-1.657 1.343-3 3-3Z" fill="currentColor"/>
+      <path
+        d="M6 3h12v2h2a1 1 0 0 1 1 1v1a5 5 0 0 1-5 5h-1.1A5.002 5.002 0 0 1 12 15a5.002 5.002 0 0 1-2.9-2H8a5 5 0 0 1-5-5V6a1 1 0 0 1 1-1h2V3Zm12 4V6h2v1a3 3 0 0 1-3 3h-1.1c.067-.32.1-.65.1-1V7Zm-12 0v2c0 .35.033.68.1 1H5a3 3 0 0 1-3-3V6h2v1Zm6 10c1.657 0 3 1.343 3 3v1H9v-1c0-1.657 1.343-3 3-3Z"
+        fill="currentColor"
+      />
     </svg>
   );
 
   return (
     <section className="relative w-full bg-[#1E1E1E] py-10 overflow-hidden">
-      <div className="container mx-auto px-4">
-        {/* cartão com mesma cor/acabamento das outras seções */}
-        <div className="rounded-xl bg-[#1E1E1E] text-center">
-          <div className=" border-white/10 px-4 md:px-6 py-5">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white text-left ">Os Mestres Das Tips</h1>
-            <p className="mt-14 mb-8 text-xl text-white/90 font-bold">
-              Ranking dinâmico por período, esporte e ordenação.
-            </p>
+      {/* BACKGROUND 100% DA TELA (por baixo de tudo) */}
+       <div className="pointer-events-none absolute left-0  top-4 hidden md:block opacity-90">
+              <Image
+                src="/MESTRES.png"
+                alt=""
+                width={1000}
+                height={300}
+                className="h-auto w-[1800px] object-contain"
+                sizes="620px"
+                priority
+              />
+            </div>
+      {/* leve véu para legibilidade */}
+  
 
-            {/* Controles — laranja */}
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3 text-left">
-              {/* Ordenação */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs uppercase tracking-wide text-white/70 font-bold">Ordenar por</span>
-                <div className="flex rounded-md bg-white/10 p-1">
-                  {(['roi', 'hit'] as const).map((opt) => (
-                    <button
-                      key={opt}
-                      onClick={() => setOrder(opt)}
-                      className={`px-3 py-2 text-xs font-bold  ${
-                        order === opt
-                          ? 'bg-[#ED4F00] text-white'
-                          : 'text-white/80 hover:text-white hover:bg-[#ED4F00]/20'
-                      }`}
-                    >
-                      {opt === 'roi' ? 'ROI' : 'Hit'}
-                    </button>
-                  ))}
+      {/* CONTEÚDO */}
+      <div className="relative z-10 w-full py-10">
+        <div className="container mx-auto px-4">
+          {/* cartão com mesma cor/acabamento das outras seções */}
+          <div className="rounded-xl bg-[#1E1E1E]/60 backdrop-blur-sm text-center ring-1 ring-white/10">
+            <div className="">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-white text-left">Os Mestres Das Tips</h1>
+              <p className="mt-14 mb-8 text-xl text-white/90 font-bold">
+                Ranking dinâmico por período, esporte e ordenação.
+              </p>
+
+              {/* Controles — laranja */}
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3 text-left">
+                {/* Ordenação */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs uppercase tracking-wide text-white/80 font-bold">Ordenar por</span>
+                  <div className="flex rounded-md bg-white/10 p-1">
+                    {(['roi', 'hit'] as const).map((opt) => (
+                      <button
+                        key={opt}
+                        onClick={() => setOrder(opt)}
+                        className={`px-3 py-2 text-xs font-bold ${
+                          order === opt
+                            ? 'bg-[#ED4F00] text-white'
+                            : 'text-white/85 hover:text-white hover:bg-[#ED4F00]/20'
+                        }`}
+                      >
+                        {opt === 'roi' ? 'ROI' : 'Hit'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Período */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs uppercase tracking-wide text-white/80 font-bold">Período</span>
+                  <div className="flex flex-wrap gap-1 rounded-md bg-white/10 p-1">
+                    {PERIOD_OPTIONS.map((p) => (
+                      <button
+                        key={p.value}
+                        onClick={() => setPeriod(p.value)}
+                        className={`px-3 py-2 text-xs font-bold ${
+                          period === p.value
+                            ? 'bg-[#ED4F00] text-white'
+                            : 'text-white/85 hover:text-white hover:bg-[#ED4F00]/20'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Esporte */}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs uppercase tracking-wide text-white/80 font-bold">Esporte</span>
+                  <div className="flex flex-wrap gap-1 rounded-md bg-white/10 p-1">
+                    {SPORT_OPTIONS.map((s) => (
+                      <button
+                        key={s.value}
+                        onClick={() => setSport(s.value)}
+                        className={`px-3 py-2 text-xs font-bold ${
+                          sport === s.value
+                            ? 'bg-[#ED4F00] text-white'
+                            : 'text-white/85 hover:text-white hover:bg-[#ED4F00]/20'
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              {/* Período */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs uppercase tracking-wide text-white/70 font-bold">Período</span>
-                <div className="flex flex-wrap gap-1 rounded-md bg-white/10 p-1">
-                  {PERIOD_OPTIONS.map((p) => (
-                    <button
-                      key={p.value}
-                      onClick={() => setPeriod(p.value)}
-                      className={`px-3 py-2 text-xs font-bold  ${
-                        period === p.value
-                          ? 'bg-[#ED4F00] text-white'
-                          : 'text-white/80 hover:text-white hover:bg-[#ED4F00]/20'
-                      }`}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Esporte */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs uppercase tracking-wide text-white/70 font-bold">Esporte</span>
-                <div className="flex flex-wrap gap-1 rounded-md bg-white/10 p-1">
-                  {SPORT_OPTIONS.map((s) => (
-                    <button
-                      key={s.value}
-                      onClick={() => setSport(s.value)}
-                      className={`px-3 py-2 text-xs font-bold ${
-                        sport === s.value
-                          ? 'bg-[#ED4F00] text-white'
-                          : 'text-white/80 hover:text-white hover:bg-[#ED4F00]/20'
-                      }`}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {/* aviso quando só 1 no filtro */}
+              {!loading && !err && sport !== 'all' && visible.length === 1 && (
+                <div className="mt-2 text-[11px] text-white/70">Sem concorrentes nesta categoria.</div>
+              )}
             </div>
 
-            {/* aviso quando só 1 no filtro */}
-            {!loading && !err && sport !== 'all' && visible.length === 1 && (
-              <div className="mt-2 text-[11px] text-white/60">Sem concorrentes nesta categoria.</div>
-            )}
-          </div>
+            <ul className="p-4 sm:p-6 space-y-5">
+              {loading && (
+                <>
+                  <SkeletonRow />
+                  <SkeletonRow />
+                  <SkeletonRow />
+                </>
+              )}
 
-          <ul className="p-4 sm:p-6 space-y-5">
-            {loading && (<><SkeletonRow /><SkeletonRow /><SkeletonRow /></>)}
-
-            {!loading && err && (
-              <li className=" ring-1 ring-white/10 bg-[#1B1F2A] p-4 text-left text-red-300">
-                {err}
-              </li>
-            )}
-
-            {!loading && !err && visible.length === 0 && (
-              <li className=" ring-1 ring-white/10 bg-[#1B1F2A] p-4 text-left text-white/70">
-                Sem tipsters por enquanto.
-              </li>
-            )}
-
-            {!loading && !err && visible.map((it) => {
-              const { author, stats, counts } = it;
-              const settled = Number(stats?.settledCount ?? 0);
-              const has = settled > 0;
-              const hit = has ? Number((stats.hitPct ?? 0).toFixed(1)) : null;
-              const roi = has ? Number((stats.roiPct ?? 0).toFixed(1)) : null;
-
-              const metricRaw = has ? metricOf(it) : null;
-
-              // barra relativa ao líder
-              let barPct = 0;
-              if (typeof metricRaw === 'number' && Number.isFinite(maxVal) && Number.isFinite(minVal)) {
-                if (maxVal === minVal) barPct = has ? 60 : 0;
-                else barPct = ((metricRaw - minVal) / (maxVal - minVal)) * 100;
-                barPct = Math.max(0, Math.min(100, Math.round(barPct)));
-              }
-
-              const lastStr = stats?.lastDate ? new Date(stats.lastDate).toLocaleString('pt-PT') : '';
-              const isLeader = has && leaderSet.has(author.slug);
-
-              return (
-                <li
-                  key={author.slug}
-                  className={`l ring-1 ring-white/10  p-4 ${
-                    isLeader ? 'ring-[#ED4F00]/40' : ''
-                  }`}
-                >
-                  <div className="flex items-start gap-4">
-                    {/* Foto */}
-                    <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-xl bg-white/10">
-                      {author.avatar ? (
-                        <Image
-                          src={author.avatar}
-                          alt={author.name}
-                          fill
-                          className="object-cover"
-                          sizes="112px"
-                          unoptimized
-                          onError={(e) => {
-                            const img = e.currentTarget as HTMLImageElement;
-                            if (img && !img.src.endsWith('/user.png')) img.src = '/user.png';
-                          }}
-                        />
-                      ) : <div className="h-full w-full animate-pulse bg-white/10" />}
-                    </div>
-
-                    <div className="min-w-0 flex-1 text-left">
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <p className="truncate text-white font-semibold">{author.name}</p>
-
-                        <span className=" border border-white/10 bg-white/10 px-2 py-[2px] text-[11px] text-white/80">
-                          {stats?.sports?.length
-                            ? stats.sports.map((s) => SPORT_LABEL[s]).join(' • ')
-                            : '—'}
-                        </span>
-
-                        {/* Troféu apenas p/ líder(ES) */}
-                        {isLeader && (
-                          <span className="inline-flex items-center gap-1 rounded-md bg-[#ED4F00]/20 px-2 py-[2px] text-[11px] font-semibold text-[#FFB490]">
-                            <Trophy className="h-3.5 w-3.5" />
-                            <span className="sr-only">Líder</span>
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="mt-2 text-sm text-white/80">
-                        {has ? (
-                          <>
-                            <span className="text-[#FFB490] font-semibold">Hit {hit}%</span>
-                            {' • '}
-                            <span className="text-[#FFB490] font-semibold">ROI {roi}%</span>
-                            {' • '}
-                            {settled} tips liquidadas
-                            {lastStr ? <> {' • '} última: {lastStr}</> : null}
-                          </>
-                        ) : counts ? (
-                          <>
-                            {counts.tips} tips • {counts.articles} artigos
-                          </>
-                        ) : <>—</>}
-                      </div>
-
-                      {/* Barra */}
-                      <div className="mt-2 h-2 w-full overflow-hidden rounded bg-white/10">
-                        <div
-                          className={`h-full bg-gradient-to-r from-[#ED4F00] to-[#FF944D] ${
-                            isLeader ? 'shadow-[0_0_12px_rgba(237,79,0,0.5)]' : ''
-                          }`}
-                          style={{
-                            transform: animateBars ? `scaleX(${barPct / 100})` : 'scaleX(0)',
-                            transformOrigin: 'left',
-                            transition: 'transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1)',
-                          }}
-                          aria-label={has ? `${order === 'hit' ? 'Hit' : 'ROI'} ${barPct}% relativo` : 'Sem métricas'}
-                        />
-                      </div>
-
-                      <div className="mt-3">
-                        <Link
-                          href={`/tipsters/${author.slug}`}
-                          className="inline-flex items-center gap-2  bg-[#ED4F00] px-3 py-1.5 text-xs font-semibold text-white/90 hover:bg-white/15"
-                        >
-                          Ver perfil
-                          <span className="text-xl leading-none">›</span>
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
+              {!loading && err && (
+                <li className="ring-1 ring-white/10 bg-[#1B1F2A]/80 backdrop-blur-sm p-4 text-left text-red-300">
+                  {err}
                 </li>
-              );
-            })}
-          </ul>
+              )}
+
+              {!loading && !err && visible.length === 0 && (
+                <li className="ring-1 ring-white/10 bg-[#1B1F2A]/80 backdrop-blur-sm p-4 text-left text-white/80">
+                  Sem participantes no momento.
+                </li>
+              )}
+
+              {!loading &&
+                !err &&
+                visible.map((it) => {
+                  const { author, stats, counts } = it;
+                  const settled = Number(stats?.settledCount ?? 0);
+                  const has = settled > 0;
+                  const hit = has ? Number((stats.hitPct ?? 0).toFixed(1)) : null;
+                  const roi = has ? Number((stats.roiPct ?? 0).toFixed(1)) : null;
+
+                  const metricRaw = has ? metricOf(it) : null;
+
+                  // barra relativa ao líder
+                  let barPct = 0;
+                  if (typeof metricRaw === 'number' && Number.isFinite(maxVal) && Number.isFinite(minVal)) {
+                    if (maxVal === minVal) barPct = has ? 60 : 0;
+                    else barPct = ((metricRaw - minVal) / (maxVal - minVal)) * 100;
+                    barPct = Math.max(0, Math.min(100, Math.round(barPct)));
+                  }
+
+                  const lastStr = stats?.lastDate ? new Date(stats.lastDate).toLocaleString('pt-PT') : '';
+                  const isLeader = has && leaderSet.has(author.slug);
+
+                  return (
+                    <li
+                      key={author.slug}
+                      className={`ring-1 ring-white/10 bg-[#1B1F2A]/80 backdrop-blur-sm p-4 ${
+                        isLeader ? 'ring-[#ED4F00]/40' : ''
+                      }`}
+                    >
+                      <div className="flex items-start gap-4">
+                        {/* Foto */}
+                        <div className="relative h-28 w-28 shrink-0 overflow-hidden rounded-xl bg-white/10">
+                          {author.avatar ? (
+                            <Image
+                              src={author.avatar}
+                              alt={author.name}
+                              fill
+                              className="object-cover"
+                              sizes="112px"
+                              unoptimized
+                              onError={(e) => {
+                                const img = e.currentTarget as HTMLImageElement;
+                                if (img && !img.src.endsWith('/user.png')) img.src = '/user.png';
+                              }}
+                            />
+                          ) : (
+                            <div className="h-full w-full animate-pulse bg-white/10" />
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1 text-left">
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                            <p className="truncate text-white font-semibold">{author.name}</p>
+
+                            <span className="border border-white/10 bg-white/10 px-2 py-[2px] text-[11px] text-white/85">
+                              {stats?.sports?.length ? stats.sports.map((s) => SPORT_LABEL[s]).join(' • ') : '—'}
+                            </span>
+
+                            {/* Troféu apenas p/ líder(ES) */}
+                            {isLeader && (
+                              <span className="inline-flex items-center gap-1 rounded-md bg-[#ED4F00]/20 px-2 py-[2px] text-[11px] font-semibold text-[#FFB490]">
+                                <Trophy className="h-3.5 w-3.5" />
+                                <span className="sr-only">Líder</span>
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="mt-2 text-sm text-white/85">
+                            {has ? (
+                              <>
+                                <span className="text-[#FFB490] font-semibold">Hit {hit}%</span>
+                                {' • '}
+                                <span className="text-[#FFB490] font-semibold">ROI {roi}%</span>
+                                {' • '}
+                                {settled} tips liquidadas
+                                {lastStr ? <> {' • '} última: {lastStr}</> : null}
+                              </>
+                            ) : counts ? (
+                              <>
+                                {counts.tips} tips • {counts.articles} artigos
+                              </>
+                            ) : (
+                              <>—</>
+                            )}
+                          </div>
+
+                          {/* Barra */}
+                          <div className="mt-2 h-2 w-full overflow-hidden rounded bg-white/10">
+                            <div
+                              className={`h-full bg-gradient-to-r from-[#ED4F00] to-[#FF944D] ${
+                                isLeader ? 'shadow-[0_0_12px_rgba(237,79,0,0.5)]' : ''
+                              }`}
+                              style={{
+                                transform: animateBars ? `scaleX(${barPct / 100})` : 'scaleX(0)',
+                                transformOrigin: 'left',
+                                transition: 'transform 900ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+                              }}
+                              aria-label={has ? `${order === 'hit' ? 'Hit' : 'ROI'} ${barPct}% relativo` : 'Sem métricas'}
+                            />
+                          </div>
+
+                          <div className="mt-3">
+                            {/* Se você removeu a página /tipsters, comente o Link abaixo */}
+                            <Link
+                              href={`/tipsters/${author.slug}`}
+                              className="inline-flex items-center gap-2 bg-[#ED4F00] px-3 py-1.5 text-xs font-semibold text-white/90 hover:bg-white/15"
+                            >
+                              Ver perfil
+                              <span className="text-xl leading-none">›</span>
+                            </Link>
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+            </ul>
+          </div>
         </div>
       </div>
     </section>
